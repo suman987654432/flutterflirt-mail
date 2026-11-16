@@ -2,6 +2,18 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { config } from '../config.js';
 
+function normalizeFolder(folder) {
+  if (!folder) return 'INBOX';
+  const lower = folder.toLowerCase();
+  if (lower === 'inbox') return 'INBOX';
+  if (lower === 'sent') return 'Sent';
+  if (lower === 'drafts') return 'Drafts';
+  if (lower === 'trash') return 'Trash';
+  if (lower === 'junk') return 'Junk';
+  if (lower === 'archive') return 'Archive';
+  return folder;
+}
+
 export class ImapService {
   /**
    * Creates an authenticated ImapFlow client using Dovecot Master User
@@ -61,7 +73,7 @@ export class ImapService {
     const client = this.getClient(email);
     await client.connect();
     try {
-      const lock = await client.getMailboxLock(folder);
+      const lock = await client.getMailboxLock(normalizeFolder(folder));
       try {
         const total = client.mailbox.exists;
         if (total === 0) return { total: 0, page, size, messages: [] };
@@ -104,7 +116,7 @@ export class ImapService {
     const client = this.getClient(email);
     await client.connect();
     try {
-      const lock = await client.getMailboxLock(folder);
+      const lock = await client.getMailboxLock(normalizeFolder(folder));
       try {
         const msg = await client.fetchOne(uid, { source: true, flags: true, envelope: true }, { uid: true });
         if (!msg || !msg.source) throw new Error('Message not found');
@@ -156,7 +168,7 @@ export class ImapService {
     const client = this.getClient(email);
     await client.connect();
     try {
-      const lock = await client.getMailboxLock(folder);
+      const lock = await client.getMailboxLock(normalizeFolder(folder));
       try {
         if (updates.read !== undefined) {
           if (updates.read) {
@@ -191,7 +203,7 @@ export class ImapService {
     const client = this.getClient(email);
     await client.connect();
     try {
-      const lock = await client.getMailboxLock(folder);
+      const lock = await client.getMailboxLock(normalizeFolder(folder));
       try {
         if (folder.toUpperCase() === 'TRASH' || folder.toUpperCase() === 'DELETED') {
           // Permanently expunge
