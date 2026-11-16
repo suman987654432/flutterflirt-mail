@@ -21,7 +21,9 @@ cp /etc/postfix/main.cf.template /etc/postfix/main.cf
 
 # Ensure proper permissions
 chown -R root:root /etc/postfix
-chmod 640 /etc/postfix/pgsql-*.cf
+chmod 644 /etc/postfix/pgsql-*.cf
+chmod 644 /etc/postfix/master.cf
+chmod 644 /etc/postfix/main.cf
 
 echo "Starting Postfix mail transfer agent..."
 exec postfix start-fg
