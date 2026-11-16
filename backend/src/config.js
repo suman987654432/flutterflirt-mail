@@ -19,7 +19,7 @@ export const config = {
     host: process.env.DB_HOST || 'postgres',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     user: process.env.DB_USER || 'ffmail',
-    password: process.env.DB_PASSWORD || 'ffmail_secure_pass',
+    password: process.env.DB_PASSWORD || 'ChangeThisSecretDBPass2026!',
     database: process.env.DB_NAME || 'flutterflirt_mail',
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : undefined,
   },

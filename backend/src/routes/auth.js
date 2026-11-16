@@ -94,7 +94,7 @@ router.post('/admin/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Admin login error:', err);
-    res.status(500).json({ error: 'Internal server error during authentication' });
+    res.status(500).json({ error: err.message || 'Internal server error during authentication' });
   }
 });
 
@@ -177,7 +177,7 @@ router.post('/mail/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Mailbox login error:', err);
-    res.status(500).json({ error: 'Internal server error during mailbox login' });
+    res.status(500).json({ error: err.message || 'Internal server error during mailbox login' });
   }
 });
 
