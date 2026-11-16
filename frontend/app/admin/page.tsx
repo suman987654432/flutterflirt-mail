@@ -40,6 +40,7 @@ export default function AdminConsolePage() {
   const [isDnsModalOpen, setIsDnsModalOpen] = useState(false);
   const [isAddDomainModalOpen, setIsAddDomainModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [selectedDomainForDns, setSelectedDomainForDns] = useState<DomainRecord | null>(null);
   const [dnsRecordsList, setDnsRecordsList] = useState<any[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -55,6 +56,13 @@ export default function AdminConsolePage() {
   const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
   const [selectedDomainForUser, setSelectedDomainForUser] = useState<string>('');
   const [filterDomain, setFilterDomain] = useState<string>('all');
+
+  // Client form states
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientPlan, setNewClientPlan] = useState('business');
+  const [newClientMaxMailboxes, setNewClientMaxMailboxes] = useState('50');
+  const [newClientAdminEmail, setNewClientAdminEmail] = useState('');
+  const [newClientAdminPassword, setNewClientAdminPassword] = useState('');
 
   // Real Database Data State
   const [domains, setDomains] = useState<DomainRecord[]>([]);
@@ -244,6 +252,37 @@ export default function AdminConsolePage() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Error creating user');
+    }
+  };
+
+  const handleAddClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName || !newClientAdminEmail || !newClientAdminPassword) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/tenants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: newClientName,
+          plan: newClientPlan,
+          maxMailboxes: parseInt(newClientMaxMailboxes, 10),
+          adminEmail: newClientAdminEmail,
+          adminPassword: newClientAdminPassword,
+        }),
+      });
+      if (res.ok) {
+        setIsAddClientModalOpen(false);
+        setNewClientName('');
+        setNewClientAdminEmail('');
+        setNewClientAdminPassword('');
+        fetchRealData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Failed to create client tenant');
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error creating client');
     }
   };
 
@@ -585,11 +624,18 @@ export default function AdminConsolePage() {
           {/* TAB 4: CLIENTS */}
           {activeTab === 'clients' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h1 className="text-2xl font-bold text-white mb-1">Clients (Tenants)</h1>
-                  <p className="text-xs text-slate-400">Tenants configured in Neon database</p>
+                  <p className="text-xs text-slate-400">Companies & organizations hosted on your platform</p>
                 </div>
+                <button
+                  onClick={() => setIsAddClientModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Client
+                </button>
               </div>
 
               <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
@@ -829,6 +875,103 @@ export default function AdminConsolePage() {
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md"
                 >
                   Create User
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Client (Tenant) Modal */}
+      {isAddClientModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h2 className="text-base font-bold text-white">Add New Client (Tenant)</h2>
+              <button onClick={() => setIsAddClientModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAddClientSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Company / Client Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. ABC Technologies Pvt Ltd"
+                  value={newClientName}
+                  onChange={e => setNewClientName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Subscription Plan</label>
+                <select
+                  value={newClientPlan}
+                  onChange={e => {
+                    const plan = e.target.value;
+                    setNewClientPlan(plan);
+                    if (plan === 'starter') setNewClientMaxMailboxes('10');
+                    else if (plan === 'business') setNewClientMaxMailboxes('50');
+                    else if (plan === 'enterprise') setNewClientMaxMailboxes('500');
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="starter">Starter Plan (Up to 10 mailboxes)</option>
+                  <option value="business">Business Plan (Up to 50 mailboxes)</option>
+                  <option value="enterprise">Enterprise Plan (Up to 500 mailboxes)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Max Mailboxes Limit</label>
+                <input
+                  type="number"
+                  required
+                  value={newClientMaxMailboxes}
+                  onChange={e => setNewClientMaxMailboxes(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Client Admin Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. admin@abc.com"
+                  value={newClientAdminEmail}
+                  onChange={e => setNewClientAdminEmail(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Initial Admin Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Temporary password for client admin"
+                  value={newClientAdminPassword}
+                  onChange={e => setNewClientAdminPassword(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddClientModalOpen(false)}
+                  className="px-4 py-2 rounded-lg text-slate-300 hover:text-white text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md"
+                >
+                  Create Client
                 </button>
               </div>
             </form>
