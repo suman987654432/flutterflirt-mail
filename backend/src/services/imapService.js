@@ -106,8 +106,9 @@ export class ImapService {
     try {
       const lock = await client.getMailboxLock(folder);
       try {
-        const messageData = await client.download(uid, [''], { uid: true });
-        const parsed = await simpleParser(messageData.content);
+        const msg = await client.fetchOne(uid, { source: true, flags: true, envelope: true }, { uid: true });
+        if (!msg || !msg.source) throw new Error('Message not found');
+        const parsed = await simpleParser(msg.source);
 
         // Extract Authentication-Results
         const authResults = parsed.headers.get('authentication-results');
