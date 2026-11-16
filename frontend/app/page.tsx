@@ -69,7 +69,7 @@ export default function WebmailPage() {
   const [composeSentToast, setComposeSentToast] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API_BASE = '';
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -60,7 +60,7 @@ export default function AdminConsolePage() {
   const [aliases, setAliases] = useState<any[]>([]);
   const [serverHealth, setServerHealth] = useState<any>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API_BASE = '';
 
   // Fetch real data from backend
   const fetchRealData = async () => {
