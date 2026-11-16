@@ -207,10 +207,25 @@ export default function WebmailPage() {
   };
 
   const handleSelectMessage = async (msg: EmailMessage, currentToken?: string, folderName?: string) => {
-    setSelectedMessage(msg);
+    // 1. Mark as read immediately in UI
+    setMessages((prev) =>
+      prev.map((m) => (m.uid === msg.uid ? { ...m, unread: false } : m))
+    );
+    setSelectedMessage({ ...msg, unread: false });
+
     const tokenToUse = currentToken || token;
     const targetFolder = folderName || FOLDER_MAP[activeFolder] || 'INBOX';
     if (!tokenToUse) return;
+
+    // 2. Persist \Seen to IMAP
+    fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokenToUse}`,
+      },
+      body: JSON.stringify({ read: true }),
+    }).catch(() => {});
 
     try {
       const res = await fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
@@ -218,10 +233,11 @@ export default function WebmailPage() {
       });
       if (res.ok) {
         const full = await res.json();
-        setSelectedMessage({
-          ...msg,
+        setSelectedMessage((prev) => prev?.uid === msg.uid ? {
+          ...prev,
           subject: full.subject || msg.subject,
           from: full.from || msg.from,
+          unread: false,
           bodyHtml: full.html || `<div style="white-space: pre-wrap; font-family: sans-serif; padding: 12px; line-height: 1.6;">${full.text || ''}</div>`,
           security: {
             spf: full.security?.spf ? 'pass' : 'none',
@@ -232,11 +248,51 @@ export default function WebmailPage() {
             filename: a.filename || 'attachment',
             size: `${Math.round((a.size || 0) / 1024)} KB`,
           })),
-        });
+        } : prev);
       }
     } catch (err) {
       console.warn('Could not load full message details:', err);
     }
+  };
+
+  const handleToggleFlag = async (e: React.MouseEvent, msg: EmailMessage) => {
+    e.stopPropagation();
+    const nextFlagged = !msg.flagged;
+    setMessages((prev) =>
+      prev.map((m) => (m.uid === msg.uid ? { ...m, flagged: nextFlagged } : m))
+    );
+    if (selectedMessage?.uid === msg.uid) {
+      setSelectedMessage((prev) => (prev ? { ...prev, flagged: nextFlagged } : null));
+    }
+    const targetFolder = FOLDER_MAP[activeFolder] || 'INBOX';
+    fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ flagged: nextFlagged }),
+    }).catch(() => {});
+  };
+
+  const handleToggleRead = async (e: React.MouseEvent, msg: EmailMessage) => {
+    e.stopPropagation();
+    const nextUnread = !msg.unread;
+    setMessages((prev) =>
+      prev.map((m) => (m.uid === msg.uid ? { ...m, unread: nextUnread } : m))
+    );
+    if (selectedMessage?.uid === msg.uid) {
+      setSelectedMessage((prev) => (prev ? { ...prev, unread: nextUnread } : null));
+    }
+    const targetFolder = FOLDER_MAP[activeFolder] || 'INBOX';
+    fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ read: !nextUnread }),
+    }).catch(() => {});
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -701,8 +757,16 @@ export default function WebmailPage() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="truncate max-w-[200px]">{msg.snippet || '(Preview)'}</span>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <span className="truncate max-w-[180px]">{msg.snippet || '(Preview)'}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          title={msg.flagged ? "Remove Flag" : "Flag message"}
+                          onClick={(e) => handleToggleFlag(e, msg)}
+                          className="p-1 rounded hover:bg-slate-200/60 transition"
+                        >
+                          <Flag className={`w-3.5 h-3.5 ${msg.flagged ? 'text-amber-500 fill-amber-500' : 'text-slate-300 hover:text-amber-500'}`} />
+                        </button>
                         <span className="px-1 rounded text-[9px] bg-emerald-100 text-emerald-800 font-semibold">
                           DKIM
                         </span>
@@ -728,7 +792,27 @@ export default function WebmailPage() {
                   <h2 className="text-lg font-bold text-slate-900 leading-snug">
                     {selectedMessage.subject}
                   </h2>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleFlag(e, selectedMessage)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
+                        selectedMessage.flagged
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Flag className={`w-3.5 h-3.5 ${selectedMessage.flagged ? 'fill-amber-500 text-amber-500' : ''}`} />
+                      <span>{selectedMessage.flagged ? 'Flagged' : 'Flag'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleRead(e, selectedMessage)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>{selectedMessage.unread ? 'Mark Read' : 'Mark Unread'}</span>
+                    </button>
                     <button
                       onClick={() => setIsComposeOpen(true)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm transition"
