@@ -5,6 +5,8 @@ mydomain = codeaddabot.in
 myorigin = $mydomain
 mydestination = localhost
 mynetworks = 127.0.0.0/8 [::1]/128 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8
+inet_protocols = ipv4
+inet_interfaces = all
 
 # Delivery to Dovecot via LMTP
 virtual_transport = lmtp:dovecot:24
