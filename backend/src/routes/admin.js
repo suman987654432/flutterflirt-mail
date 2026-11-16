@@ -318,7 +318,7 @@ router.get('/domains/:id/mailboxes', async (req, res) => {
 });
 
 router.post('/mailboxes', async (req, res) => {
-  const { domainId, localPart, displayName, password, quotaMb = 10240 } = req.body;
+  const { domainId, localPart, displayName, password, quotaMb = 10240, role = 'user' } = req.body;
   if (!domainId || !localPart || !password) {
     return res.status(400).json({ error: 'domainId, localPart, and password are required' });
   }
@@ -358,6 +358,16 @@ router.post('/mailboxes', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, true) RETURNING id, email, display_name, quota_mb, active, created_at`,
       [domainId, email, displayName || localPart, hash, quotaMb]
     );
+
+    // If role is admin, also register as tenant_admin
+    if (role === 'admin') {
+      await query(
+        `INSERT INTO admins (tenant_id, email, password_hash, role, active)
+         VALUES ($1, $2, $3, 'tenant_admin', true)
+         ON CONFLICT (email) DO UPDATE SET password_hash = $3, role = 'tenant_admin'`,
+        [domInfo.tenant_id, email, hash]
+      );
+    }
 
     await auditLog(req.user.email, 'CREATE_MAILBOX', result.rows[0].id, { email });
     res.status(201).json(result.rows[0]);

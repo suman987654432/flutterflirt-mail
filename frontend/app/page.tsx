@@ -525,13 +525,15 @@ export default function WebmailPage() {
             <RefreshCw className={`w-4 h-4 ${isLoadingMessages ? 'animate-spin text-purple-400' : ''}`} />
           </button>
 
-          <Link
-            href="/admin"
-            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-          >
-            Admin Console
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          {userEmail.startsWith('admin@') && (
+            <Link
+              href="/admin"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+            >
+              Admin Console
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
 
           {/* User Avatar Button */}
           <button
@@ -552,11 +554,13 @@ export default function WebmailPage() {
                     {userEmail[0]?.toUpperCase() || 'A'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">Administrator</div>
+                    <div className="font-semibold text-sm truncate">
+                      {userEmail.startsWith('admin@') ? 'Administrator' : 'Standard User'}
+                    </div>
                     <div className="text-xs text-indigo-200 font-mono truncate">{userEmail}</div>
                     <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      Active Mailbox
+                      {userEmail.startsWith('admin@') ? 'Admin Mailbox' : 'Active Mailbox'}
                     </div>
                   </div>
                   <button onClick={() => setIsProfileOpen(false)} className="text-slate-400 hover:text-white transition p-1">
@@ -579,14 +583,16 @@ export default function WebmailPage() {
                 </div>
 
                 <div className="p-2 space-y-0.5">
-                  <Link
-                    href="/admin"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                  >
-                    <Settings className="w-4 h-4 text-slate-500" />
-                    <span>Admin Console & DNS</span>
-                  </Link>
+                  {userEmail.startsWith('admin@') && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                    >
+                      <Settings className="w-4 h-4 text-slate-500" />
+                      <span>Admin Console & DNS</span>
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       setIsComposeOpen(true);

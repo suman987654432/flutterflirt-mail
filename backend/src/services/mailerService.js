@@ -55,15 +55,21 @@ export class MailerService {
       try {
         const composer = new MailComposer(mailOptions);
         const rawMessage = await composer.compile().build();
-        await client.append('Sent', rawMessage, ['\\Seen']);
-        console.log('[Mailer] Successfully saved copy to Sent mailbox');
+        try {
+          await client.append('Sent', rawMessage, ['\\Seen']);
+        } catch (appendErr) {
+          // Auto-create Sent folder if not present for brand-new users
+          await client.mailboxCreate('Sent');
+          await client.append('Sent', rawMessage, ['\\Seen']);
+        }
+        console.log(`[Mailer] Successfully saved copy to ${fromAddress} Sent mailbox`);
       } catch (err) {
-        console.warn('[Mailer] Could not append to Sent folder:', err.message);
+        console.warn(`[Mailer] Could not append to ${fromAddress} Sent folder:`, err.message);
       } finally {
         await client.logout().catch(() => {});
       }
     } catch (e) {
-      // Non-fatal if sent append fails
+      console.warn('[Mailer] IMAP connection for Sent folder failed:', e.message);
     }
 
     return info;

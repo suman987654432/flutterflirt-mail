@@ -52,6 +52,7 @@ export default function AdminConsolePage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserQuota, setNewUserQuota] = useState('10240');
+  const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
 
   // Real Database Data State
   const [domains, setDomains] = useState<DomainRecord[]>([]);
@@ -209,12 +210,14 @@ export default function AdminConsolePage() {
           localPart,
           password: newUserPassword,
           quotaMb: parseInt(newUserQuota, 10),
+          role: newUserRole,
         }),
       });
       if (res.ok) {
         setIsAddUserModalOpen(false);
         setNewUserEmail('');
         setNewUserPassword('');
+        setNewUserRole('user');
         fetchRealData();
       }
     } catch (err) {
@@ -696,6 +699,17 @@ export default function AdminConsolePage() {
                   onChange={e => setNewUserPassword(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Account Role</label>
+                <select
+                  value={newUserRole}
+                  onChange={e => setNewUserRole(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="user">Standard Mailbox User (Webmail access)</option>
+                  <option value="admin">Domain Administrator (Webmail + Admin Console)</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1">Quota (MB)</label>

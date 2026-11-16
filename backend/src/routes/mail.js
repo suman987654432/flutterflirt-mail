@@ -118,7 +118,7 @@ router.delete('/folders/:f/messages/:uid', async (req, res) => {
  */
 router.post('/send', upload.array('attachments', 10), async (req, res) => {
   const { to, cc, bcc, subject, html, text, from: customFrom } = req.body;
-  const from = customFrom || req.user?.email || 'admin@codeaddabot.in';
+  const from = req.user?.email || customFrom || 'admin@codeaddabot.in';
 
   if (!to || !subject) {
     return res.status(400).json({ error: 'Recipient "to" and "subject" are required' });
@@ -148,7 +148,7 @@ router.post('/send', upload.array('attachments', 10), async (req, res) => {
  */
 router.post('/drafts', upload.array('attachments', 10), async (req, res) => {
   const { to, cc, bcc, subject, html, text, from: customFrom } = req.body;
-  const from = customFrom || req.user?.email || 'admin@codeaddabot.in';
+  const from = req.user?.email || customFrom || 'admin@codeaddabot.in';
 
   try {
     const MailComposerModule = await import('nodemailer/lib/mail-composer/index.js');
