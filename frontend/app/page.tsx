@@ -342,6 +342,20 @@ export default function WebmailPage() {
     }
   };
 
+  const handleReplyToMessage = (msg: EmailMessage) => {
+    setComposeTo(msg.from.address);
+    setComposeSubject(msg.subject.toLowerCase().startsWith('re:') ? msg.subject : `Re: ${msg.subject}`);
+    setComposeBody(`\n\n--- Original Message ---\nFrom: ${msg.from.name || msg.from.address} <${msg.from.address}>\nDate: ${msg.date}\nSubject: ${msg.subject}\n\n`);
+    setIsComposeOpen(true);
+  };
+
+  const handleForwardMessage = (msg: EmailMessage) => {
+    setComposeTo('');
+    setComposeSubject(msg.subject.toLowerCase().startsWith('fwd:') ? msg.subject : `Fwd: ${msg.subject}`);
+    setComposeBody(`\n\n--- Forwarded Message ---\nFrom: ${msg.from.name || msg.from.address} <${msg.from.address}>\nDate: ${msg.date}\nSubject: ${msg.subject}\n\n`);
+    setIsComposeOpen(true);
+  };
+
   const handleSaveDraft = async () => {
     try {
       await fetch('/api/mail/drafts', {
@@ -497,9 +511,6 @@ export default function WebmailPage() {
             <span className="font-semibold text-base text-white tracking-tight">FlutterFlirt</span>
             <span className="text-pink-400 font-semibold text-sm">Mail</span>
           </div>
-          <span className="text-[11px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-            codeaddabot.in
-          </span>
         </div>
 
         {/* Global Search Bar */}
@@ -763,8 +774,8 @@ export default function WebmailPage() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="truncate max-w-[180px]">{msg.snippet || '(Preview)'}</span>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="truncate max-w-[210px] text-slate-500">{msg.snippet || '(No preview)'}</span>
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           type="button"
                           title={msg.flagged ? "Remove Flag" : "Flag message"}
@@ -773,12 +784,6 @@ export default function WebmailPage() {
                         >
                           <Flag className={`w-3.5 h-3.5 ${msg.flagged ? 'text-amber-500 fill-amber-500' : 'text-slate-300 hover:text-amber-500'}`} />
                         </button>
-                        <span className="px-1 rounded text-[9px] bg-emerald-100 text-emerald-800 font-semibold">
-                          DKIM
-                        </span>
-                        <span className="px-1 rounded text-[9px] bg-blue-100 text-blue-800 font-semibold">
-                          SPF
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -792,77 +797,117 @@ export default function WebmailPage() {
         <main className="flex-1 bg-white flex flex-col overflow-hidden">
           {selectedMessage ? (
             <div className="flex flex-1 flex-col h-full overflow-hidden">
-              {/* Header */}
-              <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-4">
-                  <h2 className="text-lg font-bold text-slate-900 leading-snug">
-                    {selectedMessage.subject}
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleFlag(e, selectedMessage)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
-                        selectedMessage.flagged
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <Flag className={`w-3.5 h-3.5 ${selectedMessage.flagged ? 'fill-amber-500 text-amber-500' : ''}`} />
-                      <span>{selectedMessage.flagged ? 'Flagged' : 'Flag'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleRead(e, selectedMessage)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>{selectedMessage.unread ? 'Mark Read' : 'Mark Unread'}</span>
-                    </button>
-                    <button
-                      onClick={() => setIsComposeOpen(true)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm transition"
-                    >
-                      <Reply className="w-3.5 h-3.5" />
-                      Reply
-                    </button>
-                  </div>
+              {/* Header Toolbar */}
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-4 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleReplyToMessage(selectedMessage)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition"
+                  >
+                    <Reply className="w-3.5 h-3.5" />
+                    <span>Reply</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleForwardMessage(selectedMessage)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 transition"
+                  >
+                    <Forward className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Forward</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleRead(e, selectedMessage)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 transition"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{selectedMessage.unread ? 'Mark Read' : 'Mark Unread'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleFlag(e, selectedMessage)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
+                      selectedMessage.flagged
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <Flag className={`w-3.5 h-3.5 ${selectedMessage.flagged ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
+                    <span>{selectedMessage.flagged ? 'Flagged' : 'Flag'}</span>
+                  </button>
                 </div>
 
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                      {(selectedMessage.from.name || selectedMessage.from.address)[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900">
-                        {selectedMessage.from.name || selectedMessage.from.address}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        {selectedMessage.from.address}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right text-slate-400 text-[11px]">
-                    <div>{selectedMessage.date}</div>
-                    <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      <ShieldCheck className="w-3 h-3" />
-                      SPF, DKIM & DMARC Verified
-                    </div>
-                  </div>
+                <div className="text-right text-slate-500 text-xs font-medium">
+                  {selectedMessage.date}
                 </div>
               </div>
 
-              {/* Message Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {selectedMessage.bodyHtml ? (
-                  <div
-                    className="prose max-w-none text-slate-800 text-sm"
-                    dangerouslySetInnerHTML={{ __html: selectedMessage.bodyHtml }}
-                  />
-                ) : (
-                  <div className="text-slate-400 text-xs italic">Loading message body...</div>
-                )}
+              {/* Message Header & Content Scroll Canvas */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-6">
+                  {/* Subject Title */}
+                  <div className="border-b border-slate-100 pb-4">
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-900 leading-snug">
+                      {selectedMessage.subject}
+                    </h1>
+                  </div>
+
+                  {/* Sender & Recipient Metadata */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow">
+                        {(selectedMessage.from.name || selectedMessage.from.address)[0]?.toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-sm">
+                            {selectedMessage.from.name || selectedMessage.from.address}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            Verified
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                          <span>{selectedMessage.from.address}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-slate-400 font-sans">to me</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email Body */}
+                  <div className="pt-2">
+                    {selectedMessage.bodyHtml ? (
+                      <div
+                        className="prose prose-slate max-w-none text-slate-800 text-sm leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: selectedMessage.bodyHtml }}
+                      />
+                    ) : (
+                      <div className="text-slate-400 text-xs italic">Loading message body...</div>
+                    )}
+                  </div>
+
+                  {/* Quick Action Footer Card (Like Gmail) */}
+                  <div className="mt-12 pt-6 border-t border-slate-200 flex items-center gap-3">
+                    <button
+                      onClick={() => handleReplyToMessage(selectedMessage)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-sm transition"
+                    >
+                      <Reply className="w-4 h-4 text-slate-500" />
+                      <span>Reply</span>
+                    </button>
+                    <button
+                      onClick={() => handleForwardMessage(selectedMessage)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-sm transition"
+                    >
+                      <Forward className="w-4 h-4 text-slate-500" />
+                      <span>Forward</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -938,29 +983,26 @@ export default function WebmailPage() {
                 />
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                <div className="text-[11px] text-slate-400">
-                  Outgoing DKIM Signing: <span className="text-emerald-600 font-semibold">ff2026._domainkey</span>
-                </div>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                >
+                  Save Draft
+                </button>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleSaveDraft}
-                    className="px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
-                  >
-                    Save Draft
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setIsComposeOpen(false)}
-                    className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
                   >
-                    Cancel
+                    Discard
                   </button>
                   <button
                     type="submit"
                     disabled={isSending}
-                    className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md flex items-center gap-1.5 transition disabled:opacity-50"
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md flex items-center gap-1.5 transition disabled:opacity-50"
                   >
                     {isSending ? (
                       <>
