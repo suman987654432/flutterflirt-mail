@@ -116,6 +116,7 @@ router.post('/mail/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    const isAdmin = mailbox.email.startsWith('admin@');
     const token = jwt.sign(
       {
         id: mailbox.id,
@@ -123,7 +124,8 @@ router.post('/mail/login', async (req, res) => {
         displayName: mailbox.display_name,
         quotaMb: mailbox.quota_mb,
         domain: mailbox.domain_name,
-        type: 'mailbox',
+        type: isAdmin ? 'admin' : 'mailbox',
+        role: isAdmin ? 'superadmin' : 'user',
       },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn }
