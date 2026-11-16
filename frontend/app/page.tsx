@@ -128,21 +128,23 @@ export default function WebmailPage() {
         body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
       });
 
-      // 2. Fallback to Admin Login if needed
-      if (!res.ok) {
-        res = await fetch('/api/admin/login', {
+      // 2. Fallback to Admin Login only if mailbox login returned 401 (e.g. system admin)
+      if (res.status === 401) {
+        const adminRes = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
         });
+        if (adminRes.ok) {
+          res = adminRes;
+        }
       }
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Invalid email or password');
       }
 
-      const data = await res.json();
       const authToken = data.token;
       const email = data.user?.email || loginEmail.trim();
 
