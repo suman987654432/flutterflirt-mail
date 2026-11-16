@@ -143,6 +143,39 @@ router.post('/send', upload.array('attachments', 10), async (req, res) => {
 });
 
 /**
+ * 6b. Save Draft
+ */
+router.post('/drafts', upload.array('attachments', 10), async (req, res) => {
+  const { to, cc, bcc, subject, html, text, from: customFrom } = req.body;
+  const from = customFrom || req.user?.email || 'admin@codeaddabot.in';
+
+  try {
+    const MailComposerModule = await import('nodemailer/lib/mail-composer/index.js');
+    const MailComposer = MailComposerModule.default || MailComposerModule;
+    const composer = new MailComposer({
+      from,
+      to,
+      cc,
+      bcc,
+      subject: subject || '(Draft)',
+      html: html || `<p>${text || ''}</p>`,
+      text,
+    });
+    const rawMessage = await composer.compile().build();
+    const client = ImapService.getClient(from);
+    await client.connect();
+    try {
+      await client.append('Drafts', rawMessage, ['\\Draft']);
+    } finally {
+      await client.logout().catch(() => {});
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * 7. Change Own Password
  */
 router.post('/password', async (req, res) => {

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import { config } from '../config.js';
 import { ImapService } from './imapService.js';
 
@@ -49,11 +50,13 @@ export class MailerService {
 
     // Save copy in 'Sent' folder via IMAP
     try {
-      const client = ImapService.getClient(from);
+      const client = ImapService.getClient(fromAddress);
       await client.connect();
       try {
-        const rawMessage = await transporter.mailComposer(mailOptions).compile().build();
+        const composer = new MailComposer(mailOptions);
+        const rawMessage = await composer.compile().build();
         await client.append('Sent', rawMessage, ['\\Seen']);
+        console.log('[Mailer] Successfully saved copy to Sent mailbox');
       } catch (err) {
         console.warn('[Mailer] Could not append to Sent folder:', err.message);
       } finally {

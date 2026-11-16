@@ -98,10 +98,19 @@ export default function WebmailPage() {
     setIsInitializing(false);
   }, []);
 
+  const FOLDER_MAP: Record<string, string> = {
+    inbox: 'INBOX',
+    sent: 'Sent',
+    drafts: 'Drafts',
+    archive: 'Archive',
+    junk: 'Junk',
+    trash: 'Trash',
+  };
+
   // Fetch messages when folder or token changes
   useEffect(() => {
     if (isAuthenticated && token) {
-      const folderKey = activeFolder === 'inbox' ? 'INBOX' : activeFolder;
+      const folderKey = FOLDER_MAP[activeFolder] || 'INBOX';
       fetchFolderMessages(folderKey, token);
     }
   }, [activeFolder, isAuthenticated, token]);
@@ -200,7 +209,7 @@ export default function WebmailPage() {
   const handleSelectMessage = async (msg: EmailMessage, currentToken?: string, folderName?: string) => {
     setSelectedMessage(msg);
     const tokenToUse = currentToken || token;
-    const targetFolder = folderName || (activeFolder === 'inbox' ? 'INBOX' : activeFolder);
+    const targetFolder = folderName || FOLDER_MAP[activeFolder] || 'INBOX';
     if (!tokenToUse) return;
 
     try {
@@ -274,6 +283,36 @@ export default function WebmailPage() {
       alert(`Send Error: ${err.message}`);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      await fetch('/api/mail/drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          from: composeFrom,
+          to: composeTo,
+          cc: composeCc,
+          subject: composeSubject,
+          text: composeBody,
+        }),
+      });
+      setIsComposeOpen(false);
+      setComposeTo('');
+      setComposeCc('');
+      setComposeSubject('');
+      setComposeBody('');
+      alert('Draft saved to Drafts folder!');
+      if (activeFolder === 'drafts') {
+        fetchFolderMessages('Drafts', token);
+      }
+    } catch (err: any) {
+      alert(`Save Draft Error: ${err.message}`);
     }
   };
 
@@ -814,6 +853,13 @@ export default function WebmailPage() {
                   Outgoing DKIM Signing: <span className="text-emerald-600 font-semibold">ff2026._domainkey</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    Save Draft
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsComposeOpen(false)}
