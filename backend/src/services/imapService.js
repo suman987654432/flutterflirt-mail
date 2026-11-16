@@ -20,7 +20,7 @@ export class ImapService {
    */
   static getClient(email) {
     const authUser = `${email}*${config.imap.masterUser}`;
-    return new ImapFlow({
+    const client = new ImapFlow({
       host: config.imap.host,
       port: config.imap.port,
       secure: config.imap.secure,
@@ -33,6 +33,11 @@ export class ImapService {
       },
       logger: false,
     });
+    // Prevent unhandled error event crashes
+    client.on('error', (err) => {
+      console.warn(`[IMAP Client Warning (${email})]:`, err.message);
+    });
+    return client;
   }
 
   /**
@@ -40,8 +45,8 @@ export class ImapService {
    */
   static async listFolders(email) {
     const client = this.getClient(email);
-    await client.connect();
     try {
+      await client.connect();
       const list = await client.list();
       const folders = [];
 
@@ -61,6 +66,16 @@ export class ImapService {
         });
       }
       return folders;
+    } catch (err) {
+      console.warn(`[ImapService.listFolders]: ${email} -`, err.message);
+      return [
+        { name: 'Inbox', path: 'INBOX', unread: 0, total: 0 },
+        { name: 'Drafts', path: 'Drafts', unread: 0, total: 0 },
+        { name: 'Sent', path: 'Sent', unread: 0, total: 0 },
+        { name: 'Archive', path: 'Archive', unread: 0, total: 0 },
+        { name: 'Junk', path: 'Junk', unread: 0, total: 0 },
+        { name: 'Trash', path: 'Trash', unread: 0, total: 0 },
+      ];
     } finally {
       await client.logout().catch(() => {});
     }
@@ -71,11 +86,11 @@ export class ImapService {
    */
   static async getMessages(email, folder = 'INBOX', page = 1, size = 25) {
     const client = this.getClient(email);
-    await client.connect();
     try {
+      await client.connect();
       const lock = await client.getMailboxLock(normalizeFolder(folder));
       try {
-        const total = client.mailbox.exists;
+        const total = client.mailbox?.exists || 0;
         if (total === 0) return { total: 0, page, size, messages: [] };
 
         const startSeq = Math.max(1, total - (page * size) + 1);
@@ -104,6 +119,9 @@ export class ImapService {
       } finally {
         lock.release();
       }
+    } catch (err) {
+      console.warn(`[ImapService.getMessages]: ${email} ${folder} -`, err.message);
+      return { total: 0, page, size, messages: [] };
     } finally {
       await client.logout().catch(() => {});
     }
