@@ -26,10 +26,12 @@ export class MailerService {
 
     const transporter = nodemailer.createTransport(transportOptions);
 
-    // Format From address cleanly as admin@codeaddabot.in
+    // Format From address cleanly
     const fromAddress = from || 'admin@codeaddabot.in';
     const displayName = fromAddress.includes('@') ? fromAddress.split('@')[0] : 'Admin';
     
+    console.log(`[Mailer] Sending mail via ${transportOptions.host}:${transportOptions.port} from ${fromAddress} to ${to}`);
+
     const mailOptions = {
       from: `"${displayName.toUpperCase()}" <${fromAddress}>`,
       replyTo: fromAddress,
@@ -47,6 +49,7 @@ export class MailerService {
     };
 
     const info = await transporter.sendMail(mailOptions);
+    console.log(`[Mailer] Successfully sent messageId: ${info.messageId}, response: ${info.response}`);
 
     // Save copy in 'Sent' folder via IMAP
     try {

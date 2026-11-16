@@ -107,7 +107,7 @@ services:
       DOVECOT_MASTER_PASSWORD: ${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}
       IMAP_HOST: dovecot
       SMTP_HOST: ${SMTP_HOST:-postfix}
-      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_PORT: ${SMTP_PORT:-25}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-mail.flutterflirt.com}
