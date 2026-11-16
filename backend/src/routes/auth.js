@@ -31,7 +31,7 @@ router.post('/admin/login', async (req, res) => {
   }
 
   try {
-    const result = await query(
+    let result = await query(
       `SELECT a.id, a.email, a.password_hash, a.role, a.tenant_id, a.active, t.name as tenant_name
        FROM admins a
        LEFT JOIN tenants t ON a.tenant_id = t.id
@@ -39,8 +39,23 @@ router.post('/admin/login', async (req, res) => {
       [email.toLowerCase().trim()]
     );
 
+    // Fallback: If not in admins table, check mailboxes table for admin@ addresses
+    if (result.rows.length === 0 && email.toLowerCase().trim().startsWith('admin@')) {
+      const mbRes = await query(
+        `SELECT m.id, m.email, m.password_hash, 'superadmin' as role, d.tenant_id, m.active, t.name as tenant_name
+         FROM mailboxes m
+         JOIN domains d ON m.domain_id = d.id
+         JOIN tenants t ON d.tenant_id = t.id
+         WHERE m.email = $1`,
+        [email.toLowerCase().trim()]
+      );
+      if (mbRes.rows.length > 0) {
+        result = mbRes;
+      }
+    }
+
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials. Only administrative accounts can access the Admin Console.' });
     }
 
     const admin = result.rows[0];
