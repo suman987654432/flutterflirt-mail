@@ -20,7 +20,7 @@ chmod 644 /etc/dovecot/dovecot-sql.conf.ext
 MASTER_PW="${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}"
 MASTER_HASH=$(doveadm pw -s BLF-CRYPT -p "$MASTER_PW")
 echo "ffapi:$MASTER_HASH" > /etc/dovecot/master-users
-chmod 600 /etc/dovecot/master-users
+chmod 644 /etc/dovecot/master-users
 
 # Ensure mail storage directory permissions
 mkdir -p /var/mail/vhosts
