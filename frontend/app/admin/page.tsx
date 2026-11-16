@@ -62,12 +62,20 @@ export default function AdminConsolePage() {
 
   const API_BASE = '';
 
+  const getAuthHeaders = (): Record<string, string> => {
+    if (typeof window === 'undefined') return {};
+    const token = localStorage.getItem('ffmail_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   // Fetch real data from backend
   const fetchRealData = async () => {
     setLoading(true);
     try {
+      const authHeaders = getAuthHeaders();
+
       // 1. Fetch Domains
-      const domRes = await fetch(`${API_BASE}/api/admin/domains`);
+      const domRes = await fetch(`${API_BASE}/api/admin/domains`, { headers: authHeaders });
       if (domRes.ok) {
         const domData = await domRes.json();
         setDomains(domData.map((d: any) => ({
@@ -83,12 +91,12 @@ export default function AdminConsolePage() {
 
         // If domains exist, fetch users for the first domain
         if (domData.length > 0) {
-          const userRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/mailboxes`);
+          const userRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/mailboxes`, { headers: authHeaders });
           if (userRes.ok) {
             const userData = await userRes.json();
             setUsers(userData);
           }
-          const aliasRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/aliases`);
+          const aliasRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/aliases`, { headers: authHeaders });
           if (aliasRes.ok) {
             const aliasData = await aliasRes.json();
             setAliases(aliasData);
@@ -97,14 +105,14 @@ export default function AdminConsolePage() {
       }
 
       // 2. Fetch Tenants/Clients
-      const clientRes = await fetch(`${API_BASE}/api/admin/tenants`);
+      const clientRes = await fetch(`${API_BASE}/api/admin/tenants`, { headers: authHeaders });
       if (clientRes.ok) {
         const clientData = await clientRes.json();
         setClients(clientData);
       }
 
       // 3. Fetch Health
-      const healthRes = await fetch(`${API_BASE}/api/admin/health`);
+      const healthRes = await fetch(`${API_BASE}/api/admin/health`, { headers: authHeaders });
       if (healthRes.ok) {
         const healthData = await healthRes.json();
         setServerHealth(healthData);
@@ -125,7 +133,7 @@ export default function AdminConsolePage() {
     setIsDnsModalOpen(true);
     setVerifySuccess(false);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/domains/${domain.id}/dns`);
+      const res = await fetch(`${API_BASE}/api/admin/domains/${domain.id}/dns`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setDnsRecordsList(data.records || []);
@@ -152,7 +160,10 @@ export default function AdminConsolePage() {
     setVerifyingDns(true);
     setVerifySuccess(false);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/domains/${selectedDomainForDns.id}/verify`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/admin/domains/${selectedDomainForDns.id}/verify`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         setVerifySuccess(true);
         fetchRealData();
@@ -171,7 +182,7 @@ export default function AdminConsolePage() {
       const firstTenant = clients[0]?.id || '11111111-1111-1111-1111-111111111111';
       const res = await fetch(`${API_BASE}/api/admin/domains`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ name: newDomainName, tenantId: firstTenant }),
       });
       if (res.ok) {
@@ -192,7 +203,7 @@ export default function AdminConsolePage() {
       const localPart = newUserEmail.includes('@') ? newUserEmail.split('@')[0] : newUserEmail;
       const res = await fetch(`${API_BASE}/api/admin/mailboxes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           domainId,
           localPart,

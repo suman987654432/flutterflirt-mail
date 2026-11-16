@@ -112,7 +112,7 @@ SELECT
     m.email,
     m.password_hash,
     m.quota_mb,
-    (m.quota_mb * 1048576)::bigint AS quota_bytes,
+    (m.quota_mb::bigint * 1048576) AS quota_bytes,
     d.name AS domain,
     split_part(m.email, '@', 1) AS username,
     CONCAT('/var/mail/vhosts/', d.name, '/', split_part(m.email, '@', 1), '/') AS maildir

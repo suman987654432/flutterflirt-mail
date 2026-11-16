@@ -12,6 +12,7 @@ dist/
 
 # Environment files & Secrets
 .env
+.env.example
 backend/.env
 frontend/.env
 .env.local

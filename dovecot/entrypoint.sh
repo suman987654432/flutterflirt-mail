@@ -13,7 +13,7 @@ fi
 chmod 600 /etc/ssl/certs/privkey.pem || true
 
 envsubst < /etc/dovecot/dovecot-sql.conf.ext.template > /etc/dovecot/dovecot-sql.conf.ext
-chmod 600 /etc/dovecot/dovecot-sql.conf.ext
+chmod 644 /etc/dovecot/dovecot-sql.conf.ext
 
 # Generate master user file for ffapi
 # Master user password from DOVECOT_MASTER_PASSWORD env
