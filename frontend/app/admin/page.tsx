@@ -53,6 +53,7 @@ export default function AdminConsolePage() {
 
   // Admin Auth Gate State
   const [isAdminAuth, setIsAdminAuth] = useState(true);
+  const [adminRole, setAdminRole] = useState<'superadmin' | 'tenant_admin'>('superadmin');
   const [adminLoginEmail, setAdminLoginEmail] = useState('admin@codeaddabot.in');
   const [adminLoginPassword, setAdminLoginPassword] = useState('AdminPassword123!');
   const [adminLoginError, setAdminLoginError] = useState('');
@@ -86,8 +87,8 @@ export default function AdminConsolePage() {
 
   const getAuthHeaders = (): Record<string, string> => {
     if (typeof window === 'undefined') return {};
-    const token = localStorage.getItem('ffmail_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    const adminToken = localStorage.getItem('ffmail_admin_token') || localStorage.getItem('ffmail_token');
+    return adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
   };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -107,9 +108,11 @@ export default function AdminConsolePage() {
       if (!res.ok) {
         throw new Error(data.error || 'Invalid administrator credentials');
       }
-      localStorage.setItem('ffmail_token', data.token);
-      localStorage.setItem('ffmail_user_email', data.user.email);
+      localStorage.setItem('ffmail_admin_token', data.token);
+      localStorage.setItem('ffmail_admin_email', data.user.email);
+      localStorage.setItem('ffmail_admin_role', data.user.role || 'superadmin');
       setCurrentAdminEmail(data.user.email);
+      setAdminRole(data.user.role || 'superadmin');
       setIsAdminAuth(true);
       fetchRealData();
     } catch (err: any) {
@@ -120,8 +123,9 @@ export default function AdminConsolePage() {
   };
 
   const handleAdminLogout = () => {
-    localStorage.removeItem('ffmail_token');
-    localStorage.removeItem('ffmail_user_email');
+    localStorage.removeItem('ffmail_admin_token');
+    localStorage.removeItem('ffmail_admin_email');
+    localStorage.removeItem('ffmail_admin_role');
     setIsAdminAuth(false);
   };
 
@@ -140,8 +144,10 @@ export default function AdminConsolePage() {
       }
       if (domRes.ok) {
         setIsAdminAuth(true);
-        const savedEmail = localStorage.getItem('ffmail_user_email');
+        const savedEmail = localStorage.getItem('ffmail_admin_email') || localStorage.getItem('ffmail_user_email');
         if (savedEmail) setCurrentAdminEmail(savedEmail);
+        const savedRole = localStorage.getItem('ffmail_admin_role');
+        if (savedRole) setAdminRole(savedRole as any);
 
         const domData = await domRes.json();
         setDomains(domData.map((d: any) => ({
@@ -425,7 +431,7 @@ export default function AdminConsolePage() {
           <nav className="space-y-1 text-xs font-semibold">
             {[
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-              { id: 'clients', label: 'Clients', icon: Building2 },
+              ...(adminRole === 'superadmin' ? [{ id: 'clients', label: 'Clients', icon: Building2 }] : []),
               { id: 'domains', label: 'Domains', icon: Globe },
               { id: 'users', label: 'Users', icon: Users },
               { id: 'aliases', label: 'Aliases & Groups', icon: GitBranch },
