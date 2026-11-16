@@ -1,0 +1,22 @@
+driver = pgsql
+connect = host=postgres dbname=${DB_NAME} user=${DB_USER} password=${DB_PASSWORD}
+default_pass_scheme = BLF-CRYPT
+
+# Authentication query
+password_query = \
+  SELECT email as user, password_hash as password, \
+    maildir as userdb_home, \
+    5000 as userdb_uid, 5000 as userdb_gid, \
+    CONCAT('*:bytes=', quota_bytes) as userdb_quota_rule \
+  FROM v_active_mailboxes WHERE email = '%u'
+
+# User lookup query
+user_query = \
+  SELECT maildir as home, \
+    5000 as uid, 5000 as gid, \
+    CONCAT('*:bytes=', quota_bytes) as quota_rule \
+  FROM v_active_mailboxes WHERE email = '%u'
+
+# Iteration query for doveadm
+iterate_query = SELECT email AS user FROM v_active_mailboxes
+

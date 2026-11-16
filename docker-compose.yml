@@ -1,0 +1,149 @@
+services:
+  # 1. Database (PostgreSQL 16)
+  postgres:
+    image: postgres:16-alpine
+    container_name: ffmail-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-flutterflirt_mail}
+      POSTGRES_USER: ${DB_USER:-ffmail}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - ffmail-net
+
+  # 2. Redis (Cache for Rspamd)
+  redis:
+    image: redis:7-alpine
+    container_name: ffmail-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - ffmail-net
+
+  # 3. Rspamd (Spam Filter & DKIM Signing)
+  rspamd:
+    image: rspamd/rspamd:latest
+    container_name: ffmail-rspamd
+    restart: unless-stopped
+    depends_on:
+      - redis
+    volumes:
+      - ./rspamd/local.d:/etc/rspamd/local.d:ro
+      - dkim_keys:/var/lib/rspamd/dkim
+    networks:
+      - ffmail-net
+
+  # 4. Dovecot (IMAP, LMTP & Mail Storage)
+  dovecot:
+    build:
+      context: ./dovecot
+    container_name: ffmail-dovecot
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-flutterflirt_mail}
+      DB_USER: ${DB_USER:-ffmail}
+      DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
+      DOVECOT_MASTER_PASSWORD: ${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}
+    volumes:
+      - mail_storage:/var/mail/vhosts
+      - ssl_certs:/etc/ssl/certs
+    ports:
+      - "993:993"   # IMAPS
+      - "143:143"   # IMAP STARTTLS
+    networks:
+      - ffmail-net
+
+  # 5. Postfix (SMTP Mail Transfer & Submission)
+  postfix:
+    build:
+      context: ./postfix
+    container_name: ffmail-postfix
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - dovecot
+      - rspamd
+    environment:
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-flutterflirt_mail}
+      DB_USER: ${DB_USER:-ffmail}
+      DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
+    volumes:
+      - ssl_certs:/etc/ssl/certs
+    ports:
+      - "25:25"     # SMTP Inbound from internet
+      - "587:587"   # SMTP Submission (STARTTLS)
+      - "465:465"   # SMTPS (TLS)
+    networks:
+      - ffmail-net
+
+  # 6. Backend API & DMARC Report Worker (Node.js Express)
+  backend:
+    build:
+      context: ./backend
+    container_name: ffmail-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - dovecot
+      - postfix
+    environment:
+      PORT: 8080
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_NAME: ${DB_NAME:-flutterflirt_mail}
+      DB_USER: ${DB_USER:-ffmail}
+      DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-replace-with-openssl-rand-hex-64}
+      DOVECOT_MASTER_USER: ffapi
+      DOVECOT_MASTER_PASSWORD: ${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}
+      IMAP_HOST: dovecot
+      SMTP_HOST: ${SMTP_HOST:-postfix}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-mail.flutterflirt.com}
+      DMARC_REPORT_EMAIL: ${DMARC_REPORT_EMAIL:-dmarc-reports@flutterflirt.com}
+      DKIM_KEY_DIR: /var/lib/rspamd/dkim
+    volumes:
+      - ./backend/src:/app/src
+      - dkim_keys:/var/lib/rspamd/dkim
+    ports:
+      - "8080:8080"
+    networks:
+      - ffmail-net
+
+  # 7. Frontend UI (Next.js 14)
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ffmail-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8080
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    networks:
+      - ffmail-net
+
+networks:
+  ffmail-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  mail_storage:
+  dkim_keys:
+  ssl_certs:
+

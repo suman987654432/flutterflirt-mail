@@ -1,0 +1,62 @@
+# Postfix main.cf - FlutterFlirt Mail Engine
+
+myhostname = mail.flutterflirt.com
+mydomain = flutterflirt.com
+myorigin = flutterflirt.com
+mydestination = localhost.flutterflirt.com, localhost
+mynetworks = 127.0.0.0/8 [::1]/128 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8
+
+# Delivery to Dovecot via LMTP
+virtual_transport = lmtp:dovecot:24
+
+# Virtual domains, mailboxes and aliases via PostgreSQL maps
+virtual_mailbox_domains = pgsql:/etc/postfix/pgsql-domains.cf
+virtual_mailbox_maps = pgsql:/etc/postfix/pgsql-mailboxes.cf
+virtual_alias_maps = pgsql:/etc/postfix/pgsql-aliases.cf
+
+# SASL Authentication via Dovecot
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = inet:dovecot:12345
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_security_options = noanonymous
+smtpd_sasl_local_domain = $myhostname
+
+# TLS Configuration
+smtpd_tls_cert_file = /etc/ssl/certs/fullchain.pem
+smtpd_tls_key_file = /etc/ssl/certs/privkey.pem
+smtpd_tls_security_level = may
+smtpd_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtpd_tls_ciphers = high
+smtp_tls_security_level = may
+smtp_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+
+# Restrictions & Security Policies
+smtpd_sender_login_maps = pgsql:/etc/postfix/pgsql-sender-login-maps.cf
+
+smtpd_recipient_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_unauth_destination,
+    reject_non_fqdn_recipient,
+    reject_unknown_recipient_domain
+
+smtpd_relay_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_unauth_destination
+
+# Milter connection to Rspamd for spam filtering and DKIM signing
+smtpd_milters = inet:rspamd:11332
+non_smtpd_milters = inet:rspamd:11332
+milter_protocol = 6
+milter_mail_macros = i {mail_addr} {client_addr} {client_name} {auth_authen}
+milter_default_action = accept
+
+# Size limits (25MB messages)
+message_size_limit = 26214400
+mailbox_size_limit = 0
+biff = no
+append_dot_mydomain = no
+readme_directory = no
+compatibility_level = 3.6
+

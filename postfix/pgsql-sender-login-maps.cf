@@ -1,0 +1,8 @@
+# Postfix pgsql-sender-login-maps.cf
+# Used to enforce reject_sender_login_mismatch
+hosts = postgres:5432
+user = ${DB_USER}
+password = ${DB_PASSWORD}
+dbname = ${DB_NAME}
+query = SELECT login FROM v_sender_login_maps WHERE sender='%s'
+

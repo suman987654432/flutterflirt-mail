@@ -1,0 +1,7 @@
+# Postfix pgsql-domains.cf
+hosts = postgres:5432
+user = ${DB_USER}
+password = ${DB_PASSWORD}
+dbname = ${DB_NAME}
+query = SELECT domain FROM v_active_domains WHERE domain='%s'
+
