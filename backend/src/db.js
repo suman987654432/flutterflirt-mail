@@ -12,16 +12,19 @@ export const getPool = async () => {
     try {
       const url = new URL(config.databaseUrl);
       const originalHost = url.hostname;
+      const isLocal = originalHost === 'postgres' || originalHost === 'localhost' || originalHost === '127.0.0.1';
       
-      // Resolve to IPv4 to bypass Windows Docker IPv6 unreachable bug
+      // Resolve to IPv4 to bypass Windows Docker IPv6 unreachable bug (only for external/remote hosts)
       let ip = originalHost;
-      try {
-        const addresses = await dns.resolve4(originalHost);
-        if (addresses && addresses.length > 0) {
-          ip = addresses[0];
+      if (!isLocal) {
+        try {
+          const addresses = await dns.resolve4(originalHost);
+          if (addresses && addresses.length > 0) {
+            ip = addresses[0];
+          }
+        } catch (err) {
+          console.warn('[DB] Could not resolve IPv4, falling back to hostname:', err.message);
         }
-      } catch (err) {
-        console.warn('[DB] Could not resolve IPv4, falling back to hostname:', err.message);
       }
 
       poolInstance = new Pool({
@@ -30,7 +33,7 @@ export const getPool = async () => {
         user: decodeURIComponent(url.username),
         password: decodeURIComponent(url.password),
         database: url.pathname.replace(/^\//, ''),
-        ssl: {
+        ssl: isLocal ? false : {
           servername: originalHost,
           rejectUnauthorized: false,
         },

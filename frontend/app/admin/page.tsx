@@ -53,6 +53,8 @@ export default function AdminConsolePage() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserQuota, setNewUserQuota] = useState('10240');
   const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
+  const [selectedDomainForUser, setSelectedDomainForUser] = useState<string>('');
+  const [filterDomain, setFilterDomain] = useState<string>('all');
 
   // Real Database Data State
   const [domains, setDomains] = useState<DomainRecord[]>([]);
@@ -90,13 +92,25 @@ export default function AdminConsolePage() {
           usersCount: d.mailbox_count || 0,
         })));
 
-        // If domains exist, fetch users for the first domain
-        if (domData.length > 0) {
-          const userRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/mailboxes`, { headers: authHeaders });
-          if (userRes.ok) {
-            const userData = await userRes.json();
-            setUsers(userData);
+        if (domData.length > 0 && !selectedDomainForUser) {
+          setSelectedDomainForUser(domData[0].id);
+        }
+
+        // Fetch all mailboxes across domains
+        const userRes = await fetch(`${API_BASE}/api/admin/mailboxes`, { headers: authHeaders });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setUsers(userData);
+        } else if (domData.length > 0) {
+          // Fallback to domain-specific mailboxes
+          const fallbackRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/mailboxes`, { headers: authHeaders });
+          if (fallbackRes.ok) {
+            const fbData = await fallbackRes.json();
+            setUsers(fbData);
           }
+        }
+
+        if (domData.length > 0) {
           const aliasRes = await fetch(`${API_BASE}/api/admin/domains/${domData[0].id}/aliases`, { headers: authHeaders });
           if (aliasRes.ok) {
             const aliasData = await aliasRes.json();
@@ -200,7 +214,11 @@ export default function AdminConsolePage() {
     e.preventDefault();
     if (!newUserEmail || !newUserPassword) return;
     try {
-      const domainId = domains[0]?.id || '22222222-2222-2222-2222-222222222222';
+      const domainId = selectedDomainForUser || domains[0]?.id;
+      if (!domainId) {
+        alert('Please select or add a domain first');
+        return;
+      }
       const localPart = newUserEmail.includes('@') ? newUserEmail.split('@')[0] : newUserEmail;
       const res = await fetch(`${API_BASE}/api/admin/mailboxes`, {
         method: 'POST',
@@ -219,9 +237,13 @@ export default function AdminConsolePage() {
         setNewUserPassword('');
         setNewUserRole('user');
         fetchRealData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Failed to create user mailbox');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error creating user');
     }
   };
 
@@ -472,14 +494,31 @@ export default function AdminConsolePage() {
           {/* TAB 3: USERS */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-2xl font-bold text-white mb-1">Users</h1>
-                  <p className="text-xs text-slate-400">Live mailboxes from database</p>
+                  <h1 className="text-2xl font-bold text-white mb-1">Users & Mailboxes</h1>
+                  <p className="text-xs text-slate-400">Manage all mail accounts across your domains</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* Domain Filter */}
+                  <select
+                    value={filterDomain}
+                    onChange={e => setFilterDomain(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-medium"
+                  >
+                    <option value="all">All Domains ({domains.length})</option>
+                    {domains.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+
                   <button
-                    onClick={() => setIsAddUserModalOpen(true)}
+                    onClick={() => {
+                      if (domains.length > 0 && !selectedDomainForUser) {
+                        setSelectedDomainForUser(domains[0].id);
+                      }
+                      setIsAddUserModalOpen(true);
+                    }}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition"
                   >
                     <Plus className="w-4 h-4" />
@@ -493,24 +532,50 @@ export default function AdminConsolePage() {
                   <thead className="bg-slate-900/60 text-slate-400 text-[11px] font-bold uppercase border-b border-slate-800">
                     <tr>
                       <th className="p-4">Email</th>
-                      <th className="p-4">Display Name</th>
+                      <th className="p-4">Domain</th>
+                      <th className="p-4">Account Role</th>
                       <th className="p-4">Quota</th>
                       <th className="p-4">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80 font-medium">
-                    {users.map((u: any) => (
-                      <tr key={u.id} className="hover:bg-slate-900/40 transition">
-                        <td className="p-4 text-white font-mono font-bold">{u.email}</td>
-                        <td className="p-4 text-slate-300">{u.display_name || u.name}</td>
-                        <td className="p-4 text-slate-400">{u.quota_mb ? `${u.quota_mb / 1024} GB` : '10 GB'}</td>
-                        <td className="p-4">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
-                            {u.active !== false ? 'Active' : 'Blocked'}
-                          </span>
+                    {users
+                      .filter((u: any) => filterDomain === 'all' || u.domain_name === filterDomain || (u.email && u.email.endsWith('@' + filterDomain)))
+                      .map((u: any) => {
+                        const isAdmin = u.role === 'admin' || (u.email && u.email.startsWith('admin@'));
+                        return (
+                          <tr key={u.id} className="hover:bg-slate-900/40 transition">
+                            <td className="p-4 text-white font-mono font-bold">{u.email}</td>
+                            <td className="p-4 text-slate-400 font-mono">
+                              {u.domain_name || (u.email ? u.email.split('@')[1] : '-')}
+                            </td>
+                            <td className="p-4">
+                              {isAdmin ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  Administrator
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                  Standard User
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 text-slate-400">{u.quota_mb ? `${u.quota_mb / 1024} GB` : '10 GB'}</td>
+                            <td className="p-4">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                                {u.active !== false ? 'Active' : 'Blocked'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {users.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-slate-500">
+                          No mailboxes found. Click "Add user" above to create one.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -679,16 +744,40 @@ export default function AdminConsolePage() {
             </div>
             <form onSubmit={handleAddUserSubmit} className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">Email Username (local part)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. admin or support"
-                  value={newUserEmail}
-                  onChange={e => setNewUserEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
+                <label className="text-xs font-bold text-slate-300 block mb-1">Select Domain</label>
+                <select
+                  value={selectedDomainForUser || domains[0]?.id || ''}
+                  onChange={e => setSelectedDomainForUser(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                >
+                  {domains.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Email Username (local part)</label>
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. rahul or support"
+                    value={newUserEmail}
+                    onChange={e => setNewUserEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-l-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                  <div className="bg-slate-800 border border-l-0 border-slate-700 px-3 py-2 rounded-r-lg text-slate-400 font-mono text-sm whitespace-nowrap">
+                    @{domains.find(d => d.id === (selectedDomainForUser || domains[0]?.id))?.name || 'domain.com'}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Full email will be: <span className="font-mono text-blue-400 font-semibold">{newUserEmail.includes('@') ? newUserEmail : (newUserEmail || 'username') + '@' + (domains.find(d => d.id === (selectedDomainForUser || domains[0]?.id))?.name || 'domain.com')}</span>
+                </p>
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1">Password</label>
                 <input
@@ -700,6 +789,7 @@ export default function AdminConsolePage() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1">Account Role</label>
                 <select
@@ -707,17 +797,23 @@ export default function AdminConsolePage() {
                   onChange={e => setNewUserRole(e.target.value as any)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="user">Standard Mailbox User (Webmail access)</option>
-                  <option value="admin">Domain Administrator (Webmail + Admin Console)</option>
+                  <option value="user">Standard User (Webmail access only)</option>
+                  <option value="admin">Administrator (Webmail + Admin Console access)</option>
                 </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {newUserRole === 'admin'
+                    ? '★ Administrator can access Admin Console, manage domains, add users, and check DMARC.'
+                    : '✓ Standard mailbox for normal email operations (Send, Receive, Folders).'}
+                </p>
               </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1">Quota (MB)</label>
                 <input
                   type="number"
                   value={newUserQuota}
                   onChange={e => setNewUserQuota(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">

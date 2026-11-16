@@ -93,13 +93,14 @@ router.post('/mail/login', async (req, res) => {
   }
 
   try {
+    const cleanEmail = email.toLowerCase().trim();
     const result = await query(
-      `SELECT m.id, m.email, m.display_name, m.password_hash, m.quota_mb, m.active, d.name as domain_name
+      `SELECT m.id, m.email, m.display_name, m.password_hash, m.quota_mb, m.active, d.name as domain_name, d.tenant_id
        FROM mailboxes m
        JOIN domains d ON m.domain_id = d.id
        JOIN tenants t ON d.tenant_id = t.id
        WHERE m.email = $1 AND d.active = true AND t.active = true`,
-      [email.toLowerCase().trim()]
+      [cleanEmail]
     );
 
     if (result.rows.length === 0) {
@@ -116,7 +117,24 @@ router.post('/mail/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const isAdmin = mailbox.email.startsWith('admin@');
+    // Check if this mailbox user is also an admin in the admins table
+    const adminCheck = await query(
+      `SELECT role FROM admins WHERE email = $1 AND active = true`,
+      [cleanEmail]
+    );
+
+    const isSystemAdmin = mailbox.email.startsWith('admin@');
+    let userRole = 'user';
+    let userType = 'mailbox';
+
+    if (isSystemAdmin) {
+      userRole = 'superadmin';
+      userType = 'admin';
+    } else if (adminCheck.rows.length > 0) {
+      userRole = adminCheck.rows[0].role || 'tenant_admin';
+      userType = 'admin';
+    }
+
     const token = jwt.sign(
       {
         id: mailbox.id,
@@ -124,8 +142,9 @@ router.post('/mail/login', async (req, res) => {
         displayName: mailbox.display_name,
         quotaMb: mailbox.quota_mb,
         domain: mailbox.domain_name,
-        type: isAdmin ? 'admin' : 'mailbox',
-        role: isAdmin ? 'superadmin' : 'user',
+        tenantId: mailbox.tenant_id,
+        type: userType,
+        role: userRole,
       },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn }

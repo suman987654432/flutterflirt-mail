@@ -303,6 +303,29 @@ router.get('/domains/:id/dmarc-reports', async (req, res) => {
 /**
  * 4. Mailboxes (Users)
  */
+router.get('/mailboxes', async (req, res) => {
+  const { domainId } = req.query;
+  try {
+    let sql = `
+      SELECT m.id, m.domain_id, d.name as domain_name, m.email, m.display_name, m.quota_mb, m.active, m.created_at,
+             CASE WHEN a.email IS NOT NULL THEN 'admin' ELSE 'user' END as role
+      FROM mailboxes m
+      JOIN domains d ON m.domain_id = d.id
+      LEFT JOIN admins a ON a.email = m.email
+    `;
+    const params = [];
+    if (domainId) {
+      sql += ' WHERE m.domain_id = $1';
+      params.push(domainId);
+    }
+    sql += ' ORDER BY m.created_at DESC';
+    const result = await query(sql, params);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/domains/:id/mailboxes', async (req, res) => {
   const { id } = req.params;
   try {
