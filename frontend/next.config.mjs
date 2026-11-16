@@ -3,9 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   async rewrites() {
-    const isDocker = process.env.IS_DOCKER === 'true' || process.env.NEXT_PUBLIC_API_URL?.includes('backend');
-    const fallbackUrl = isDocker ? 'http://backend:8080' : 'http://localhost:8080';
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || fallbackUrl;
+    // In production / Docker, internal backend is always 'http://backend:8080'
+    // In local development on laptop host machine without Docker, it falls back to 'http://localhost:8080'
+    const isLocalDev = process.env.NODE_ENV === 'development' && !process.env.IS_DOCKER;
+    const defaultBackend = isLocalDev ? 'http://localhost:8080' : 'http://backend:8080';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || defaultBackend;
 
     return [
       {
