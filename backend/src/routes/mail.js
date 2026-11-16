@@ -138,7 +138,8 @@ router.post('/send', upload.array('attachments', 10), async (req, res) => {
 
     res.json({ success: true, messageId: info.messageId });
   } catch (err) {
-    res.json({ success: true, messageId: `mock-msg-${Date.now()}` });
+    console.error('[Mailer Error]:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

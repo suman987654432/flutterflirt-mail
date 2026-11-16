@@ -34,7 +34,7 @@ export const config = {
 
   smtp: {
     host: process.env.SMTP_HOST || 'postfix',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    port: parseInt(process.env.SMTP_PORT || '25', 10),
     user: process.env.SMTP_USER || null,
     pass: process.env.SMTP_PASS || null,
     secure: process.env.SMTP_SECURE === 'true' || false,
