@@ -235,8 +235,13 @@ export default function WebmailPage() {
       });
       if (res.ok) {
         const full = await res.json();
+        const cleanSnippet = (full.text || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+        setMessages((prev) =>
+          prev.map((m) => (m.uid === msg.uid ? { ...m, snippet: cleanSnippet || m.snippet } : m))
+        );
         setSelectedMessage((prev) => prev?.uid === msg.uid ? {
           ...prev,
+          snippet: cleanSnippet || prev.snippet,
           subject: full.subject || msg.subject,
           from: full.from || msg.from,
           unread: false,
@@ -295,6 +300,37 @@ export default function WebmailPage() {
       },
       body: JSON.stringify({ read: !nextUnread }),
     }).catch(() => {});
+  };
+
+  const handleDeleteMessage = async (msg: EmailMessage) => {
+    if (!msg) return;
+    const uidToDelete = msg.uid;
+    const targetFolder = FOLDER_MAP[activeFolder] || 'INBOX';
+
+    // 1. Optimistically remove from UI
+    const remaining = messages.filter((m) => m.uid !== uidToDelete);
+    setMessages(remaining);
+
+    // 2. Select next email if deleted was selected
+    if (selectedMessage?.uid === uidToDelete) {
+      if (remaining.length > 0) {
+        handleSelectMessage(remaining[0]);
+      } else {
+        setSelectedMessage(null);
+      }
+    }
+
+    // 3. Inform backend
+    try {
+      await fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${uidToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (err) {
+      console.warn('Failed to delete message on backend:', err);
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -772,12 +808,34 @@ export default function WebmailPage() {
                     </div>
 
                     <div className={`text-xs truncate mb-1 ${msg.unread ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
-                      {msg.subject}
+                      {msg.subject.match(/^re:\s*/i) ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            Re
+                          </span>
+                          <span className="truncate">{msg.subject.replace(/^re:\s*/i, '')}</span>
+                        </span>
+                      ) : (
+                        msg.subject
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="truncate max-w-[210px] text-slate-500">{msg.snippet || '(No preview)'}</span>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <span className="truncate max-w-[185px] text-slate-500">
+                        {msg.snippet && msg.snippet !== msg.subject ? msg.snippet : (msg.subject.match(/^re:\s*/i) ? '' : msg.snippet)}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          title="Delete message"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMessage(msg);
+                          }}
+                          className="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           title={msg.flagged ? "Remove Flag" : "Flag message"}
@@ -838,6 +896,15 @@ export default function WebmailPage() {
                     <Flag className={`w-3.5 h-3.5 ${selectedMessage.flagged ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
                     <span>{selectedMessage.flagged ? 'Flagged' : 'Flag'}</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteMessage(selectedMessage)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition"
+                    title="Delete message"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    <span>Delete</span>
+                  </button>
                 </div>
 
                 <div className="text-right text-slate-500 text-xs font-medium">
@@ -849,9 +916,14 @@ export default function WebmailPage() {
               <div className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-6">
                   {/* Subject Title */}
-                  <div className="border-b border-slate-100 pb-4">
+                  <div className="border-b border-slate-100 pb-4 flex items-center gap-2.5">
+                    {selectedMessage.subject.match(/^re:\s*/i) && (
+                      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                        Re
+                      </span>
+                    )}
                     <h1 className="text-xl md:text-2xl font-bold text-slate-900 leading-snug">
-                      {selectedMessage.subject}
+                      {selectedMessage.subject.replace(/^re:\s*/i, '')}
                     </h1>
                   </div>
 
@@ -907,6 +979,13 @@ export default function WebmailPage() {
                     >
                       <Forward className="w-4 h-4 text-slate-500" />
                       <span>Forward</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteMessage(selectedMessage)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold shadow-sm transition"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <span>Delete</span>
                     </button>
                   </div>
                 </div>
