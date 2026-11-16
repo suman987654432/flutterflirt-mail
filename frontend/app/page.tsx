@@ -113,7 +113,7 @@ export default function WebmailPage() {
 
     try {
       // 1. Try Mailbox Login
-      let res = await fetch('/api/auth/mail/login', {
+      let res = await fetch('/api/mail/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
@@ -121,7 +121,7 @@ export default function WebmailPage() {
 
       // 2. Fallback to Admin Login if needed
       if (!res.ok) {
-        res = await fetch('/api/auth/admin/login', {
+        res = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),

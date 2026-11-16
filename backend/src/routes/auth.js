@@ -6,6 +6,21 @@ import { config } from '../config.js';
 
 const router = express.Router();
 
+async function verifyHash(password, storedHash) {
+  if (!storedHash || !password) return false;
+  const cleanHash = storedHash.replace(/^{BLF-CRYPT}/i, '');
+  try {
+    if (await bcrypt.compare(password, cleanHash)) return true;
+  } catch (e) {}
+  if (cleanHash.startsWith('$2y$')) {
+    try {
+      if (await bcrypt.compare(password, cleanHash.replace('$2y$', '$2a$'))) return true;
+      if (await bcrypt.compare(password, cleanHash.replace('$2y$', '$2b$'))) return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
 /**
  * Admin Login (/api/admin/login)
  */
@@ -33,8 +48,8 @@ router.post('/admin/login', async (req, res) => {
       return res.status(403).json({ error: 'Admin account is suspended' });
     }
 
-    // Check bcrypt hash
-    const match = await bcrypt.compare(password, admin.password_hash);
+    // Check bcrypt / BLF-CRYPT hash
+    const match = await verifyHash(password, admin.password_hash);
     if (!match) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -96,7 +111,7 @@ router.post('/mail/login', async (req, res) => {
       return res.status(403).json({ error: 'Mailbox is inactive or suspended' });
     }
 
-    const match = await bcrypt.compare(password, mailbox.password_hash);
+    const match = await verifyHash(password, mailbox.password_hash);
     if (!match) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }

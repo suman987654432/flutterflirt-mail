@@ -42,6 +42,7 @@ const authLimiter = rateLimit({
 
 // Mount Routes
 app.use('/api', authLimiter, authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/.well-known', autoconfigRoutes);
