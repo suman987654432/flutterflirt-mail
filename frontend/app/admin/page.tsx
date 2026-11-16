@@ -52,7 +52,8 @@ export default function AdminConsolePage() {
   const [loading, setLoading] = useState(false);
 
   // Admin Auth Gate State
-  const [isAdminAuth, setIsAdminAuth] = useState(true);
+  const [isAdminAuth, setIsAdminAuth] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [adminRole, setAdminRole] = useState<'superadmin' | 'tenant_admin'>('superadmin');
   const [adminLoginEmail, setAdminLoginEmail] = useState('admin@codeaddabot.in');
   const [adminLoginPassword, setAdminLoginPassword] = useState('AdminPassword123!');
@@ -87,7 +88,7 @@ export default function AdminConsolePage() {
 
   const getAuthHeaders = (): Record<string, string> => {
     if (typeof window === 'undefined') return {};
-    const adminToken = localStorage.getItem('ffmail_admin_token') || localStorage.getItem('ffmail_token');
+    const adminToken = localStorage.getItem('ffmail_admin_token');
     return adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
   };
 
@@ -114,6 +115,7 @@ export default function AdminConsolePage() {
       setCurrentAdminEmail(data.user.email);
       setAdminRole(data.user.role || 'superadmin');
       setIsAdminAuth(true);
+      setIsAuthChecking(false);
       fetchRealData();
     } catch (err: any) {
       setAdminLoginError(err.message || 'Login failed');
@@ -127,6 +129,7 @@ export default function AdminConsolePage() {
     localStorage.removeItem('ffmail_admin_email');
     localStorage.removeItem('ffmail_admin_role');
     setIsAdminAuth(false);
+    setIsAuthChecking(false);
   };
 
   // Fetch real data from backend
@@ -134,17 +137,25 @@ export default function AdminConsolePage() {
     setLoading(true);
     try {
       const authHeaders = getAuthHeaders();
+      if (!authHeaders.Authorization) {
+        setIsAdminAuth(false);
+        setIsAuthChecking(false);
+        setLoading(false);
+        return;
+      }
 
       // 1. Fetch Domains
       const domRes = await fetch(`${API_BASE}/api/admin/domains`, { headers: authHeaders });
       if (domRes.status === 401 || domRes.status === 403) {
         setIsAdminAuth(false);
+        setIsAuthChecking(false);
         setLoading(false);
         return;
       }
       if (domRes.ok) {
         setIsAdminAuth(true);
-        const savedEmail = localStorage.getItem('ffmail_admin_email') || localStorage.getItem('ffmail_user_email');
+        setIsAuthChecking(false);
+        const savedEmail = localStorage.getItem('ffmail_admin_email');
         if (savedEmail) setCurrentAdminEmail(savedEmail);
         const savedRole = localStorage.getItem('ffmail_admin_role');
         if (savedRole) setAdminRole(savedRole as any);
@@ -209,6 +220,12 @@ export default function AdminConsolePage() {
   };
 
   useEffect(() => {
+    const adminToken = localStorage.getItem('ffmail_admin_token');
+    if (!adminToken) {
+      setIsAdminAuth(false);
+      setIsAuthChecking(false);
+      return;
+    }
     fetchRealData();
   }, []);
 
@@ -346,6 +363,15 @@ export default function AdminConsolePage() {
       alert(err.message || 'Error creating client');
     }
   };
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
+        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+        <p className="text-xs font-semibold text-slate-400">Verifying administrative access...</p>
+      </div>
+    );
+  }
 
   if (!isAdminAuth) {
     return (
