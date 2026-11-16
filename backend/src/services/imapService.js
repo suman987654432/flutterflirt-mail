@@ -12,6 +12,9 @@ export class ImapService {
       host: config.imap.host,
       port: config.imap.port,
       secure: config.imap.secure,
+      tls: {
+        rejectUnauthorized: false,
+      },
       auth: {
         user: authUser,
         pass: config.imap.masterPassword,
