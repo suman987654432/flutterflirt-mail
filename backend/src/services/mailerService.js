@@ -32,6 +32,31 @@ export class MailerService {
     
     console.log(`[Mailer] Sending mail via ${transportOptions.host}:${transportOptions.port} from ${fromAddress} to ${to}`);
 
+    // Process HTML: Convert any embedded Base64 data URLs to standard RFC-compliant MIME CID inline attachments
+    let processedHtml = html || '';
+    const inlineAttachments = [];
+    const base64Regex = /src=["']data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,([A-Za-z0-9+/=\s]+)["']/gi;
+    let imgCount = 0;
+
+    processedHtml = processedHtml.replace(base64Regex, (match, mimeType, base64Data) => {
+      imgCount++;
+      const cleanBase64 = base64Data.replace(/\s+/g, '');
+      const cid = `img_cid_${Date.now()}_${imgCount}@codeaddabot.in`;
+      const ext = (mimeType === 'jpeg' || mimeType === 'jpg') ? 'jpg' : mimeType === 'svg+xml' ? 'svg' : mimeType;
+      const filename = `image_${imgCount}.${ext}`;
+      const buffer = Buffer.from(cleanBase64, 'base64');
+
+      inlineAttachments.push({
+        filename,
+        content: buffer,
+        contentType: mimeType === 'jpg' ? 'image/jpeg' : `image/${mimeType}`,
+        cid: cid,
+        contentDisposition: 'inline',
+      });
+
+      return `src="cid:${cid}"`;
+    });
+
     const mailOptions = {
       from: `"${displayName.toUpperCase()}" <${fromAddress}>`,
       replyTo: fromAddress,
@@ -39,13 +64,16 @@ export class MailerService {
       cc,
       bcc,
       subject,
-      html,
+      html: processedHtml,
       text,
-      attachments: attachments.map(att => ({
-        filename: att.originalname || att.filename,
-        content: att.buffer || att.content,
-        contentType: att.mimetype || att.contentType,
-      })),
+      attachments: [
+        ...attachments.map(att => ({
+          filename: att.originalname || att.filename,
+          content: att.buffer || att.content,
+          contentType: att.mimetype || att.contentType,
+        })),
+        ...inlineAttachments,
+      ],
     };
 
     const info = await transporter.sendMail(mailOptions);

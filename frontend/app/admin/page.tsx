@@ -19,6 +19,7 @@ import {
   Lock,
   LogOut,
   ShieldAlert,
+  Menu,
 } from 'lucide-react';
 
 interface DomainRecord {
@@ -40,6 +41,7 @@ interface DomainRecord {
 
 export default function AdminConsolePage() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'clients' | 'domains' | 'users' | 'aliases' | 'dmarc'>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDnsModalOpen, setIsDnsModalOpen] = useState(false);
   const [isAddDomainModalOpen, setIsAddDomainModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -439,9 +441,9 @@ export default function AdminConsolePage() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between shrink-0 p-4">
+    <div className="flex h-screen bg-slate-900 text-slate-100 font-sans overflow-hidden relative">
+      {/* Sidebar Navigation - Desktop */}
+      <aside className="hidden md:flex w-64 bg-slate-950 border-r border-slate-800 flex-col justify-between shrink-0 p-4">
         <div>
           {/* Brand Header */}
           <div className="flex items-center gap-3 mb-8 px-2">
@@ -514,9 +516,109 @@ export default function AdminConsolePage() {
         </div>
       </aside>
 
+      {/* Mobile Sidebar Drawer */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative w-72 max-w-[80vw] bg-slate-950 h-full shadow-2xl flex flex-col justify-between p-4 z-10 animate-in slide-in-from-left duration-200">
+            <div>
+              <div className="flex items-center justify-between mb-6 px-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center font-bold text-sm tracking-wider shadow">
+                    FF
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-white leading-tight">FlutterFlirt Mail</div>
+                    <div className="text-[10px] text-pink-400 font-medium">Admin Console</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="space-y-1 text-xs font-semibold">
+                {[
+                  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                  ...(adminRole === 'superadmin' ? [{ id: 'clients', label: 'Clients', icon: Building2 }] : []),
+                  { id: 'domains', label: 'Domains', icon: Globe },
+                  { id: 'users', label: 'Users', icon: Users },
+                  { id: 'aliases', label: 'Aliases & Groups', icon: GitBranch },
+                  { id: 'dmarc', label: 'DMARC Reports', icon: BarChart3 },
+                ].map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as any);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 space-y-2">
+              <Link
+                href="/"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-900 transition"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Open Webmail</span>
+              </Link>
+              <button
+                onClick={handleAdminLogout}
+                className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition border border-rose-500/20"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-y-auto bg-slate-900">
-        <div className="p-8 max-w-7xl w-full mx-auto space-y-6">
+        {/* Mobile Header Bar */}
+        <div className="md:hidden flex items-center justify-between p-3 bg-slate-950 border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-1.5 rounded bg-slate-900 text-slate-300 hover:text-white"
+              title="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="font-bold text-sm text-white capitalize">{activeTab}</span>
+          </div>
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-medium"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Webmail</span>
+          </Link>
+        </div>
+
+        <div className="p-4 sm:p-8 max-w-7xl w-full mx-auto space-y-6">
 
           {/* TAB 1: DASHBOARD */}
           {activeTab === 'dashboard' && (

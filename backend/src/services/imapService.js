@@ -148,6 +148,38 @@ export class ImapService {
         const dkimPass = authHeader.includes('dkim=pass');
         const dmarcPass = authHeader.includes('dmarc=pass');
 
+        let bodyHtml = parsed.html || parsed.textAsHtml || `<pre>${parsed.text || ''}</pre>`;
+
+        // Format and process attachments
+        const attachmentsList = (parsed.attachments || []).map((att, idx) => {
+          const rawCid = (att.cid || '').replace(/^<|>$/g, '').trim();
+          const mime = att.contentType || 'application/octet-stream';
+          const b64 = att.content ? att.content.toString('base64') : '';
+          const dataUrl = `data:${mime};base64,${b64}`;
+          const isInline = !!att.related || att.contentDisposition === 'inline' || !!rawCid;
+
+          return {
+            id: idx,
+            filename: att.filename || `attachment-${idx + 1}`,
+            contentType: mime,
+            size: att.size || (att.content ? att.content.length : 0),
+            cid: rawCid,
+            isInline,
+            dataUrl,
+          };
+        });
+
+        // Resolve inline CID images directly inside bodyHtml so all browsers render them
+        if (bodyHtml && attachmentsList.length > 0) {
+          attachmentsList.forEach((att) => {
+            if (att.cid && att.dataUrl) {
+              const escapedCid = att.cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const pattern = new RegExp(`src=["']cid:<?${escapedCid}>?["']`, 'gi');
+              bodyHtml = bodyHtml.replace(pattern, `src="${att.dataUrl}"`);
+            }
+          });
+        }
+
         return {
           uid: parseInt(uid, 10),
           subject: parsed.subject || '(No Subject)',
@@ -155,7 +187,7 @@ export class ImapService {
           to: parsed.to?.value || [],
           cc: parsed.cc?.value || [],
           date: parsed.date,
-          html: parsed.html || parsed.textAsHtml || `<pre>${parsed.text || ''}</pre>`,
+          html: bodyHtml,
           text: parsed.text,
           security: {
             spf: spfPass ? 'pass' : (authHeader.includes('spf=fail') ? 'fail' : 'none'),
@@ -163,13 +195,7 @@ export class ImapService {
             dmarc: dmarcPass ? 'pass' : (authHeader.includes('dmarc=fail') ? 'fail' : 'none'),
             rawAuthResults: authHeader,
           },
-          attachments: (parsed.attachments || []).map((att, idx) => ({
-            id: idx,
-            filename: att.filename || `attachment-${idx}`,
-            contentType: att.contentType,
-            size: att.size,
-            dataUrl: `data:${att.contentType};base64,${att.content.toString('base64')}`,
-          })),
+          attachments: attachmentsList,
         };
       } finally {
         lock.release();
