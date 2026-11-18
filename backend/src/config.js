@@ -45,6 +45,12 @@ export const config = {
     defaultSelector: 'ff2026',
   },
 
+  redis: {
+    host: process.env.REDIS_HOST || 'redis',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+  },
+
   platformDomain: process.env.PLATFORM_DOMAIN || 'mail.flutterflirt.com',
   dmarcEmail: process.env.DMARC_REPORT_EMAIL || 'dmarc-reports@flutterflirt.com',
 };

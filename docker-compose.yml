@@ -95,6 +95,7 @@ services:
       - postgres
       - dovecot
       - postfix
+      - redis
     environment:
       PORT: 8080
       DATABASE_URL: ${DATABASE_URL:-}
@@ -102,6 +103,8 @@ services:
       DB_NAME: ${DB_NAME:-flutterflirt_mail}
       DB_USER: ${DB_USER:-ffmail}
       DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-replace-with-openssl-rand-hex-64}
       DOVECOT_MASTER_USER: ffapi
       DOVECOT_MASTER_PASSWORD: ${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}

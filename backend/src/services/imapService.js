@@ -1,6 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { config } from '../config.js';
+import { cache } from '../redis.js';
 
 function normalizeFolder(folder) {
   if (!folder) return 'INBOX';
@@ -14,42 +15,36 @@ function normalizeFolder(folder) {
   return folder;
 }
 
-// In-memory cache for parsed message bodies: key = `${email}:${folder}:${uid}`
-const parsedMessageCache = new Map();
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const MAX_CACHE_ENTRIES = 300;
-
-function getCachedMessage(key) {
-  const item = parsedMessageCache.get(key);
-  if (!item) return null;
-  if (Date.now() > item.expiresAt) {
-    parsedMessageCache.delete(key);
-    return null;
-  }
-  return item;
+async function getCachedMessage(key) {
+  return await cache.get(`mail:msg:${key}`);
 }
 
-function setCachedMessage(key, clientPayload, rawAttachments) {
-  if (parsedMessageCache.size >= MAX_CACHE_ENTRIES) {
-    const oldestKey = parsedMessageCache.keys().next().value;
-    if (oldestKey) parsedMessageCache.delete(oldestKey);
-  }
-  parsedMessageCache.set(key, {
-    clientPayload,
-    rawAttachments,
-    expiresAt: Date.now() + CACHE_TTL_MS,
-  });
+async function setCachedMessage(key, clientPayload, rawAttachments) {
+  const serializableAttachments = (rawAttachments || []).map((a) => ({
+    id: a.id,
+    filename: a.filename,
+    contentType: a.contentType,
+    size: a.size,
+    contentBase64: a.content ? (Buffer.isBuffer(a.content) ? a.content.toString('base64') : (a.contentBase64 || '')) : (a.contentBase64 || ''),
+  }));
+
+  await cache.set(
+    `mail:msg:${key}`,
+    {
+      clientPayload,
+      rawAttachments: serializableAttachments,
+    },
+    1800 // 30 minutes in Redis
+  );
 }
 
-export function invalidateMessageCache(email, folder, uid) {
+export async function invalidateMessageCache(email, folder, uid) {
   if (uid) {
-    parsedMessageCache.delete(`${email}:${folder}:${uid}`);
+    await cache.del(`mail:msg:${email}:${folder}:${uid}`);
   } else {
-    const prefix = `${email}:${folder}:`;
-    for (const k of parsedMessageCache.keys()) {
-      if (k.startsWith(prefix)) parsedMessageCache.delete(k);
-    }
+    await cache.delPattern(`mail:msg:${email}:${folder}:*`);
   }
+  await cache.del(`mail:folders:${email}`);
 }
 
 export class ImapService {
@@ -82,6 +77,12 @@ export class ImapService {
    * Retrieves list of folders and unread counts
    */
   static async listFolders(email) {
+    const cacheKey = `mail:folders:${email}`;
+    const cached = await cache.get(cacheKey);
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      return cached;
+    }
+
     const client = this.getClient(email);
     try {
       await client.connect();
@@ -103,6 +104,8 @@ export class ImapService {
           unread: status.unseen || 0,
         });
       }
+      // Cache folders for 20 seconds in Redis/Memory
+      await cache.set(cacheKey, folders, 20);
       return folders;
     } catch (err) {
       console.warn(`[ImapService.listFolders]: ${email} -`, err.message);
@@ -170,8 +173,8 @@ export class ImapService {
    */
   static async getMessage(email, folder, uid) {
     const cacheKey = `${email}:${folder}:${uid}`;
-    const cached = getCachedMessage(cacheKey);
-    if (cached) {
+    const cached = await getCachedMessage(cacheKey);
+    if (cached && cached.clientPayload) {
       return cached.clientPayload;
     }
 
@@ -260,8 +263,8 @@ export class ImapService {
           attachments: attachmentsList,
         };
 
-        // Cache in memory for instant subsequent loads
-        setCachedMessage(cacheKey, clientPayload, rawAttachments);
+        // Cache in Redis/Memory for instant subsequent loads
+        await setCachedMessage(cacheKey, clientPayload, rawAttachments);
 
         return clientPayload;
       } finally {
@@ -277,13 +280,18 @@ export class ImapService {
    */
   static async getAttachment(email, folder, uid, attachmentIndex) {
     const cacheKey = `${email}:${folder}:${uid}`;
-    let cached = getCachedMessage(cacheKey);
+    let cached = await getCachedMessage(cacheKey);
     if (!cached) {
       await this.getMessage(email, folder, uid);
-      cached = getCachedMessage(cacheKey);
+      cached = await getCachedMessage(cacheKey);
     }
     if (cached && cached.rawAttachments && cached.rawAttachments[attachmentIndex]) {
-      return cached.rawAttachments[attachmentIndex];
+      const att = cached.rawAttachments[attachmentIndex];
+      const content = att.contentBase64 ? Buffer.from(att.contentBase64, 'base64') : (att.content || null);
+      return {
+        ...att,
+        content,
+      };
     }
     return null;
   }
@@ -313,8 +321,8 @@ export class ImapService {
         }
         if (updates.moveTo) {
           await client.messageMove({ uid: String(uid) }, updates.moveTo, { uid: true });
-          invalidateMessageCache(email, folder, uid);
-          invalidateMessageCache(email, updates.moveTo, uid);
+          await invalidateMessageCache(email, folder, uid);
+          await invalidateMessageCache(email, updates.moveTo, uid);
         }
         return { success: true };
       } finally {
@@ -329,7 +337,7 @@ export class ImapService {
    * Delete message (moves to Trash or expunges)
    */
   static async deleteMessage(email, folder, uid) {
-    invalidateMessageCache(email, folder, uid);
+    await invalidateMessageCache(email, folder, uid);
     const client = this.getClient(email);
     await client.connect();
     try {

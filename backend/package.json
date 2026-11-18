@@ -18,6 +18,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "imapflow": "^1.0.171",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "mailparser": "^3.7.2",
     "morgan": "^1.10.0",
@@ -30,4 +31,3 @@
     "nodemon": "^3.1.9"
   }
 }
-
