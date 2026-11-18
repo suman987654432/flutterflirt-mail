@@ -94,6 +94,25 @@ CREATE TABLE IF NOT EXISTS audit_log (
     at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 8. User Tasks & To-Do
+CREATE TABLE IF NOT EXISTS tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID,
+    user_email VARCHAR(255) NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    completed BOOLEAN NOT NULL DEFAULT false,
+    important BOOLEAN NOT NULL DEFAULT false,
+    due_date VARCHAR(50),
+    source_email_uid INT,
+    source_email_subject VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_user_email ON tasks(user_email);
+CREATE INDEX IF NOT EXISTS idx_tasks_user_id ON tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at DESC);
+
 -- =========================================================================
 -- Views for Postfix & Dovecot (Live updates when tenant/user is suspended)
 -- =========================================================================

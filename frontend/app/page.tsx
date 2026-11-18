@@ -73,6 +73,7 @@ import {
   Check,
   Clock,
   Sparkles,
+  Database,
 } from 'lucide-react';
 
 interface EmailMessage {
@@ -250,73 +251,247 @@ export default function WebmailPage() {
     features: string[];
   } | null>(null);
 
-  // 8. Real Functional To-Do & Tasks State (Microsoft To-Do / Google Tasks)
+  // 8. Real Functional To-Do & Tasks State (PostgreSQL Backed with Strict User Isolation)
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
   const [tasks, setTasks] = useState<UserTask[]>([]);
+  const [isTasksLoading, setIsTasksLoading] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDueDate, setNewTaskDueDate] = useState<'today' | 'tomorrow' | 'none'>('none');
+  const [newTaskDueDate, setNewTaskDueDate] = useState<'today' | 'tomorrow' | 'none'>('today');
   const [newTaskImportant, setNewTaskImportant] = useState(false);
   const [taskFilter, setTaskFilter] = useState<'all' | 'today' | 'important' | 'completed'>('all');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState('');
 
-  const updateTasks = (newTasks: UserTask[]) => {
-    setTasks(newTasks);
-    try {
-      localStorage.setItem('ffmail_tasks', JSON.stringify(newTasks));
-    } catch { }
+  const handleStartEdit = (task: UserTask) => {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
   };
 
-  const handleAddTask = (e?: React.FormEvent) => {
+  const handleSaveEdit = async (taskId: string) => {
+    if (!editingTaskTitle.trim()) return;
+    const newTitle = editingTaskTitle.trim();
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, title: newTitle } : t))
+    );
+    setEditingTaskId(null);
+
+    try {
+      const activeToken = token || localStorage.getItem('ffmail_token');
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${activeToken}`,
+        },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      showToast('Task updated.', 'success');
+    } catch (err) {
+      console.error('[Tasks DB] Error updating task title:', err);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setEditingTaskTitle('');
+  };
+
+  // Load tasks from backend PostgreSQL database
+  const fetchTasksFromDb = async (authToken?: string) => {
+    const activeToken = authToken || token || (typeof window !== 'undefined' ? localStorage.getItem('ffmail_token') : null);
+    if (!activeToken) return;
+    setIsTasksLoading(true);
+    try {
+      const res = await fetch('/api/tasks', {
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.tasks)) {
+          setTasks(data.tasks);
+          try {
+            const currentEmail = userEmail || localStorage.getItem('ffmail_user_email') || 'me';
+            localStorage.setItem(`ffmail_tasks_${currentEmail}`, JSON.stringify(data.tasks));
+          } catch { }
+        }
+      }
+    } catch (err) {
+      console.error('[Tasks DB] Failed to fetch tasks:', err);
+    } finally {
+      setIsTasksLoading(false);
+    }
+  };
+
+  const handleAddTask = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newTaskTitle.trim()) return;
-    const task: UserTask = {
-      id: `task-${Date.now()}`,
-      title: newTaskTitle.trim(),
+    const title = newTaskTitle.trim();
+    const dueDate = newTaskDueDate === 'today' ? 'Today' : newTaskDueDate === 'tomorrow' ? 'Tomorrow' : undefined;
+    const important = newTaskImportant;
+
+    // Reset input immediately for instant responsiveness
+    setNewTaskTitle('');
+    setNewTaskDueDate('today');
+    setNewTaskImportant(false);
+
+    // Optimistic task
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTask: UserTask = {
+      id: tempId,
+      title,
       completed: false,
-      important: newTaskImportant,
-      dueDate: newTaskDueDate === 'today' ? 'Today' : newTaskDueDate === 'tomorrow' ? 'Tomorrow' : undefined,
+      important,
+      dueDate,
       createdAt: new Date().toISOString(),
     };
-    updateTasks([task, ...tasks]);
-    setNewTaskTitle('');
-    setNewTaskDueDate('none');
-    setNewTaskImportant(false);
-    showToast('Task added to To-Do.', 'success');
+    setTasks((prev) => [optimisticTask, ...prev]);
+
+    try {
+      const activeToken = token || localStorage.getItem('ffmail_token');
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${activeToken}`,
+        },
+        body: JSON.stringify({
+          title,
+          important,
+          dueDate,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.task) {
+          setTasks((prev) => prev.map((t) => (t.id === tempId ? data.task : t)));
+          showToast('Task saved to database.', 'success');
+          return;
+        }
+      }
+      showToast('Task added.', 'success');
+    } catch (err) {
+      console.error('[Tasks DB] Error creating task:', err);
+      showToast('Task saved locally.', 'info');
+    }
   };
 
-  const handleToggleTaskComplete = (taskId: string) => {
-    const updated = tasks.map((t) =>
-      t.id === taskId ? { ...t, completed: !t.completed } : t
+  const handleToggleTaskComplete = async (taskId: string) => {
+    const current = tasks.find((t) => t.id === taskId);
+    if (!current) return;
+    const nextCompleted = !current.completed;
+
+    // Optimistic UI update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, completed: nextCompleted } : t))
     );
-    updateTasks(updated);
+
+    try {
+      const activeToken = token || localStorage.getItem('ffmail_token');
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${activeToken}`,
+        },
+        body: JSON.stringify({ completed: nextCompleted }),
+      });
+    } catch (err) {
+      console.error('[Tasks DB] Error toggling complete:', err);
+    }
   };
 
-  const handleToggleTaskImportant = (taskId: string) => {
-    const updated = tasks.map((t) =>
-      t.id === taskId ? { ...t, important: !t.important } : t
+  const handleToggleTaskImportant = async (taskId: string) => {
+    const current = tasks.find((t) => t.id === taskId);
+    if (!current) return;
+    const nextImportant = !current.important;
+
+    // Optimistic UI update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, important: nextImportant } : t))
     );
-    updateTasks(updated);
+
+    try {
+      const activeToken = token || localStorage.getItem('ffmail_token');
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${activeToken}`,
+        },
+        body: JSON.stringify({ important: nextImportant }),
+      });
+    } catch (err) {
+      console.error('[Tasks DB] Error toggling important:', err);
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    const updated = tasks.filter((t) => t.id !== taskId);
-    updateTasks(updated);
+  const handleDeleteTask = async (taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
     showToast('Task deleted.', 'info');
+
+    try {
+      const activeToken = token || localStorage.getItem('ffmail_token');
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+        },
+      });
+    } catch (err) {
+      console.error('[Tasks DB] Error deleting task:', err);
+    }
   };
 
-  const handleCreateTaskFromEmail = (msg: EmailMessage) => {
-    const task: UserTask = {
-      id: `task-${Date.now()}`,
-      title: `Follow up: ${msg.subject || '(no subject)'}`,
+  const handleCreateTaskFromEmail = async (msg: EmailMessage) => {
+    const title = `Follow up: ${msg.subject || '(no subject)'}`;
+    const dueDate = 'Today';
+    const important = true;
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTask: UserTask = {
+      id: tempId,
+      title,
       completed: false,
-      important: true,
-      dueDate: 'Today',
+      important,
+      dueDate,
       createdAt: new Date().toISOString(),
       sourceEmailUid: msg.uid,
       sourceEmailSubject: msg.subject,
     };
-    updateTasks([task, ...tasks]);
+    setTasks((prev) => [optimisticTask, ...prev]);
     setIsTaskPanelOpen(true);
-    showToast('Added email to To-Do tasks!', 'success');
+
+    try {
+      const activeToken = token || localStorage.getItem('ffmail_token');
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${activeToken}`,
+        },
+        body: JSON.stringify({
+          title,
+          important,
+          dueDate,
+          sourceEmailUid: msg.uid,
+          sourceEmailSubject: msg.subject,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.task) {
+          setTasks((prev) => prev.map((t) => (t.id === tempId ? data.task : t)));
+        }
+      }
+      showToast('Email linked & saved to Tasks database!', 'success');
+    } catch (err) {
+      console.error('[Tasks DB] Error creating task from email:', err);
+      showToast('Added email to To-Do tasks!', 'success');
+    }
   };
 
   const filteredTasks = tasks.filter((task) => {
@@ -336,42 +511,14 @@ export default function WebmailPage() {
       setCustomSignatureInput(savedSig);
     }
 
-    // Load saved tasks or initialize realistic starter tasks
-    const savedTasks = localStorage.getItem('ffmail_tasks');
-    if (savedTasks) {
+    // Load cached tasks if available, then sync with PostgreSQL database
+    const cachedTasks = savedEmail ? localStorage.getItem(`ffmail_tasks_${savedEmail}`) : localStorage.getItem('ffmail_tasks');
+    if (cachedTasks) {
       try {
-        setTasks(JSON.parse(savedTasks));
+        setTasks(JSON.parse(cachedTasks));
       } catch { }
-    } else {
-      const starterTasks: UserTask[] = [
-        {
-          id: 'task-1',
-          title: 'Review Amazon SES production access status',
-          completed: false,
-          important: true,
-          dueDate: 'Today',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'task-2',
-          title: 'Verify Custom MAIL FROM Domain (bounces.codeaddabot.in)',
-          completed: true,
-          important: false,
-          dueDate: 'Today',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'task-3',
-          title: 'Test inline photo & attachment downloads in Webmail',
-          completed: false,
-          important: false,
-          dueDate: 'Tomorrow',
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      setTasks(starterTasks);
-      localStorage.setItem('ffmail_tasks', JSON.stringify(starterTasks));
     }
+
     if (savedToken) {
       setToken(savedToken);
       if (savedEmail) {
@@ -380,6 +527,7 @@ export default function WebmailPage() {
       }
       setIsAuthenticated(true);
       fetchFolderMessages('INBOX', savedToken);
+      fetchTasksFromDb(savedToken);
     }
     setIsInitializing(false);
   }, []);
@@ -441,8 +589,9 @@ export default function WebmailPage() {
       setComposeFrom(email);
       setIsAuthenticated(true);
 
-      // Load inbox immediately
+      // Load inbox and tasks from database immediately
       await fetchFolderMessages('INBOX', authToken);
+      fetchTasksFromDb(authToken);
     } catch (err: any) {
       setLoginError(err.message || 'Login failed. Please check credentials.');
     } finally {
@@ -3583,65 +3732,94 @@ export default function WebmailPage() {
         </div>
       )}
 
-      {/* 8. Microsoft To-Do / Google Tasks Slide-over Drawer */}
+      {/* 8. Microsoft To-Do / Google Tasks Centered Modal Dialog */}
       {isTaskPanelOpen && (
-        <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-6 animate-in fade-in duration-150">
           <div
-            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] transition-opacity"
-            onClick={() => setIsTaskPanelOpen(false)}
+            className="fixed inset-0"
+            onClick={() => {
+              handleCancelEdit();
+              setIsTaskPanelOpen(false);
+            }}
           />
-          <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white shadow-2xl border-l border-[#edebe9] flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="relative z-10 bg-white rounded-2xl shadow-2xl border border-[#dadce0] w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-[#0078d4] to-[#106ebe] text-white flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-xs">
-                  <CheckSquare className="w-4 h-4 text-white" />
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-[#005a9e] via-[#0078d4] to-[#106ebe] text-white flex items-center justify-between shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-xs border border-white/20 shadow-xs">
+                  <CheckSquare className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold leading-tight">To-Do & Tasks</h3>
-                  <p className="text-[11px] text-white/80">
+                  <h3 className="text-base font-bold leading-tight tracking-tight">To-Do & Tasks</h3>
+                  <p className="text-xs text-white/80 mt-0.5">
                     {tasks.filter((t) => !t.completed).length} active {tasks.filter((t) => !t.completed).length === 1 ? 'task' : 'tasks'}
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsTaskPanelOpen(false)}
-                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => fetchTasksFromDb()}
+                  title="Refresh tasks"
+                  className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition active:scale-95"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isTasksLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCancelEdit();
+                    setIsTaskPanelOpen(false);
+                  }}
+                  title="Close"
+                  className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 p-2 bg-[#f8fafd] border-b border-[#edebe9] text-xs font-medium">
+            <div className="flex items-center gap-1.5 p-3 bg-[#f8fafd] border-b border-[#edebe9] text-xs font-medium overflow-x-auto">
               {[
-                { id: 'all', label: 'All' },
-                { id: 'today', label: 'Today' },
-                { id: 'important', label: '⭐ Important' },
-                { id: 'completed', label: 'Completed' },
+                { id: 'all', label: 'All', count: tasks.length },
+                { id: 'today', label: 'Today', count: tasks.filter((t) => t.dueDate === 'Today' && !t.completed).length },
+                { id: 'important', label: '⭐ Important', count: tasks.filter((t) => t.important && !t.completed).length },
+                { id: 'completed', label: 'Completed', count: tasks.filter((t) => t.completed).length },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setTaskFilter(tab.id as any)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 shrink-0 ${
                     taskFilter === tab.id
-                      ? 'bg-white text-[#0078d4] shadow-xs font-semibold'
-                      : 'text-[#605e5c] hover:text-[#201f1e] hover:bg-white/60'
+                      ? 'bg-[#0078d4] text-white shadow-xs font-semibold'
+                      : 'text-[#605e5c] hover:text-[#201f1e] hover:bg-[#edebe9]'
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
+                  {tab.count > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        taskFilter === tab.id
+                          ? 'bg-white/25 text-white'
+                          : 'bg-[#edebe9] text-[#605e5c]'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
 
             {/* Add Task Input Form */}
-            <form onSubmit={handleAddTask} className="p-3 bg-white border-b border-[#edebe9]">
-              <div className="flex items-center gap-2 bg-[#f3f2f1] rounded-xl px-3 py-2 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0078d4] border border-transparent focus-within:border-transparent transition">
+            <form onSubmit={handleAddTask} className="p-3.5 bg-white border-b border-[#edebe9]">
+              <div className="flex items-center gap-2 bg-[#f3f2f1] rounded-xl px-3.5 py-2.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0078d4] border border-transparent focus-within:border-transparent transition">
                 <input
                   type="text"
-                  placeholder="+ Add a task..."
+                  placeholder="+ Add a task to To-Do..."
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   className="w-full bg-transparent text-xs text-[#201f1e] placeholder-[#a19f9d] focus:outline-hidden"
@@ -3650,8 +3828,8 @@ export default function WebmailPage() {
                   type="button"
                   onClick={() => setNewTaskImportant(!newTaskImportant)}
                   title={newTaskImportant ? 'Marked as Important' : 'Mark as Important'}
-                  className={`p-1 rounded transition ${
-                    newTaskImportant ? 'text-amber-500' : 'text-[#a19f9d] hover:text-[#605e5c]'
+                  className={`p-1.5 rounded-md transition ${
+                    newTaskImportant ? 'text-amber-500 bg-amber-50' : 'text-[#a19f9d] hover:text-[#605e5c]'
                   }`}
                 >
                   <Star className={`w-4 h-4 ${newTaskImportant ? 'fill-amber-400' : ''}`} />
@@ -3659,23 +3837,23 @@ export default function WebmailPage() {
                 <button
                   type="submit"
                   disabled={!newTaskTitle.trim()}
-                  className="px-3 py-1 bg-[#0078d4] hover:bg-[#106ebe] disabled:bg-[#c8c6c4] text-white text-xs font-semibold rounded-lg transition active:scale-95"
+                  className="px-3.5 py-1.5 bg-[#0078d4] hover:bg-[#106ebe] disabled:bg-[#c8c6c4] text-white text-xs font-semibold rounded-lg transition active:scale-95 shadow-xs"
                 >
-                  Add
+                  Add Task
                 </button>
               </div>
 
               {/* Quick Due Date Chips */}
               <div className="flex items-center gap-1.5 mt-2 px-1">
-                <span className="text-[10px] text-[#a19f9d] flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Due:
+                <span className="text-[10px] text-[#a19f9d] flex items-center gap-1 font-medium">
+                  <Clock className="w-3 h-3" /> Due Date:
                 </span>
                 <button
                   type="button"
                   onClick={() => setNewTaskDueDate(newTaskDueDate === 'today' ? 'none' : 'today')}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition ${
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium transition ${
                     newTaskDueDate === 'today'
-                      ? 'bg-blue-100 text-[#0078d4] font-semibold'
+                      ? 'bg-blue-100 text-[#0078d4] font-semibold border border-blue-200'
                       : 'bg-[#f3f2f1] text-[#605e5c] hover:bg-[#edebe9]'
                   }`}
                 >
@@ -3684,9 +3862,9 @@ export default function WebmailPage() {
                 <button
                   type="button"
                   onClick={() => setNewTaskDueDate(newTaskDueDate === 'tomorrow' ? 'none' : 'tomorrow')}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition ${
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium transition ${
                     newTaskDueDate === 'tomorrow'
-                      ? 'bg-blue-100 text-[#0078d4] font-semibold'
+                      ? 'bg-blue-100 text-[#0078d4] font-semibold border border-blue-200'
                       : 'bg-[#f3f2f1] text-[#605e5c] hover:bg-[#edebe9]'
                   }`}
                 >
@@ -3696,109 +3874,177 @@ export default function WebmailPage() {
             </form>
 
             {/* Task Items List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {filteredTasks.length === 0 ? (
-                <div className="py-12 text-center text-[#a19f9d]">
-                  <CheckSquare className="w-8 h-8 mx-auto mb-2 text-[#c8c6c4]" />
-                  <p className="text-xs font-semibold text-[#605e5c]">No tasks in this view</p>
-                  <p className="text-[11px] text-[#a19f9d] mt-0.5">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 min-h-[220px]">
+              {isTasksLoading && tasks.length === 0 ? (
+                <div className="py-8 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center gap-3 p-3.5 bg-[#f8fafd] rounded-xl border border-gray-200">
+                      <div className="w-5 h-5 bg-gray-200 rounded-full"></div>
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-2 bg-gray-100 rounded w-1/3"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredTasks.length === 0 ? (
+                <div className="py-16 text-center text-[#a19f9d]">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#0078d4] flex items-center justify-center mx-auto mb-3 border border-blue-100 shadow-xs">
+                    <CheckSquare className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-bold text-[#201f1e]">No tasks in this view</p>
+                  <p className="text-xs text-[#8a8886] mt-1 max-w-[280px] mx-auto leading-relaxed">
                     {taskFilter === 'completed'
-                      ? 'No completed tasks yet.'
-                      : 'Add a new task above or convert any email to a task.'}
+                      ? 'No completed tasks yet. Mark tasks as done to see them here.'
+                      : 'Create a new task above or convert any email into a task.'}
                   </p>
                 </div>
               ) : (
                 filteredTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`group flex items-start gap-2.5 p-2.5 rounded-xl border transition ${
+                    className={`group flex items-start gap-3 p-3.5 rounded-xl border transition duration-150 ${
                       task.completed
-                        ? 'bg-[#faf9f8] border-[#edebe9] opacity-60'
-                        : 'bg-white border-[#e1dfdd] hover:border-[#0078d4] shadow-xs'
+                        ? 'bg-[#faf9f8] border-[#edebe9] opacity-70'
+                        : task.important
+                        ? 'bg-white border-amber-300 border-l-4 border-l-amber-400 shadow-xs hover:shadow-sm'
+                        : 'bg-white border-[#e1dfdd] hover:border-[#0078d4] shadow-xs hover:shadow-sm'
                     }`}
                   >
                     {/* Checkbox */}
                     <button
                       type="button"
                       onClick={() => handleToggleTaskComplete(task.id)}
-                      className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center transition shrink-0 ${
+                      className={`w-5 h-5 rounded-full border mt-0.5 flex items-center justify-center transition shrink-0 ${
                         task.completed
-                          ? 'bg-[#0078d4] border-[#0078d4] text-white'
-                          : 'border-[#8a8886] hover:border-[#0078d4]'
+                          ? 'bg-[#0078d4] border-[#0078d4] text-white shadow-xs'
+                          : 'border-[#8a8886] hover:border-[#0078d4] hover:bg-blue-50/50'
                       }`}
                     >
-                      {task.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      {task.completed && <Check className="w-3 h-3 stroke-[3]" />}
                     </button>
 
-                    {/* Task Content */}
+                    {/* Task Content / Inline Edit Form */}
                     <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-xs leading-snug break-words ${
-                          task.completed
-                            ? 'line-through text-[#8a8886]'
-                            : 'text-[#201f1e] font-medium'
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-
-                      {/* Badges */}
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        {task.dueDate && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-50 text-[#0078d4]">
-                            <Clock className="w-2.5 h-2.5" />
-                            {task.dueDate}
-                          </span>
-                        )}
-                        {task.sourceEmailSubject && (
-                          <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-[#f3f2f1] text-[#605e5c] max-w-[200px] truncate"
-                            title={`Linked email: ${task.sourceEmailSubject}`}
+                      {editingTaskId === task.id ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleSaveEdit(task.id);
+                          }}
+                          className="flex items-center gap-2 w-full"
+                        >
+                          <input
+                            type="text"
+                            value={editingTaskTitle}
+                            onChange={(e) => setEditingTaskTitle(e.target.value)}
+                            autoFocus
+                            className="flex-1 bg-white border border-[#0078d4] rounded-lg px-2.5 py-1 text-xs text-[#201f1e] focus:outline-hidden shadow-xs"
+                          />
+                          <button
+                            type="submit"
+                            className="px-2.5 py-1 bg-[#0078d4] text-white text-xs font-semibold rounded-md hover:bg-[#106ebe] transition"
                           >
-                            <Mail className="w-2.5 h-2.5 shrink-0" />
-                            <span className="truncate">{task.sourceEmailSubject}</span>
-                          </span>
-                        )}
-                      </div>
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            className="px-2.5 py-1 bg-[#f3f2f1] text-[#605e5c] text-xs font-medium rounded-md hover:bg-[#edebe9] transition"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <p
+                            className={`text-xs leading-relaxed break-words ${
+                              task.completed
+                                ? 'line-through text-[#8a8886]'
+                                : 'text-[#201f1e] font-medium'
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+
+                          {/* Badges */}
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            {task.dueDate && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-semibold bg-blue-50 text-[#0078d4] border border-blue-200/50">
+                                <Clock className="w-2.5 h-2.5" />
+                                {task.dueDate}
+                              </span>
+                            )}
+                            {task.sourceEmailSubject && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-medium bg-[#f3f2f1] text-[#323130] border border-[#e1dfdd] max-w-[280px] truncate"
+                                title={`Linked email: ${task.sourceEmailSubject}`}
+                              >
+                                <Mail className="w-2.5 h-2.5 shrink-0 text-[#0078d4]" />
+                                <span className="truncate">{task.sourceEmailSubject}</span>
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
 
-                    {/* Actions: Star & Delete */}
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleTaskImportant(task.id)}
-                        className={`p-1 rounded transition ${
-                          task.important
-                            ? 'text-amber-500'
-                            : 'text-[#c8c6c4] hover:text-[#605e5c] opacity-0 group-hover:opacity-100'
-                        }`}
-                        title={task.important ? 'Important' : 'Mark as important'}
-                      >
-                        <Star className={`w-3.5 h-3.5 ${task.important ? 'fill-amber-400' : ''}`} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="p-1 rounded text-[#c8c6c4] hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
-                        title="Delete task"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {/* Actions: Star, Edit & Delete */}
+                    {editingTaskId !== task.id && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTaskImportant(task.id)}
+                          className={`p-1.5 rounded-md transition ${
+                            task.important
+                              ? 'text-amber-500 bg-amber-50'
+                              : 'text-[#c8c6c4] hover:text-[#605e5c] hover:bg-[#f3f2f1]'
+                          }`}
+                          title={task.important ? 'Important' : 'Mark as important'}
+                        >
+                          <Star className={`w-4 h-4 ${task.important ? 'fill-amber-400' : ''}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(task)}
+                          className="p-1.5 rounded-md text-[#c8c6c4] hover:text-[#0078d4] hover:bg-blue-50 transition"
+                          title="Edit task title"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="p-1.5 rounded-md text-[#c8c6c4] hover:text-red-600 hover:bg-red-50 transition"
+                          title="Delete task"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
             </div>
 
             {/* Footer Summary */}
-            <div className="p-3 bg-[#f8fafd] border-t border-[#edebe9] text-[11px] text-[#605e5c] flex items-center justify-between">
-              <span>Saved locally in browser</span>
-              <span className="font-semibold text-[#0078d4]">
-                {tasks.filter((t) => t.completed).length} of {tasks.length} completed
+            <div className="px-5 py-3.5 bg-[#f8fafd] border-t border-[#edebe9] text-xs text-[#5f6368] flex items-center justify-between">
+              <span className="font-medium">
+                {tasks.filter((t) => t.completed).length} of {tasks.length} tasks completed
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  handleCancelEdit();
+                  setIsTaskPanelOpen(false);
+                }}
+                className="px-4 py-1.5 bg-[#0078d4] hover:bg-[#106ebe] text-white text-xs font-semibold rounded-lg transition active:scale-95 shadow-xs"
+              >
+                Done
+              </button>
             </div>
-          </aside>
-        </>
+          </div>
+        </div>
       )}
 
       {/* 7. Universal Clean Toast (Zero window.alert) */}

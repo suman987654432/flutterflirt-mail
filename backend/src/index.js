@@ -13,6 +13,7 @@ import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import mailRoutes from './routes/mail.js';
+import taskRoutes from './routes/tasks.js';
 import autoconfigRoutes from './routes/autoconfig.js';
 import { DmarcWorker } from './workers/dmarcWorker.js';
 
@@ -45,6 +46,7 @@ app.use('/api', authLimiter, authRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mail', mailRoutes);
+app.use('/api/tasks', taskRoutes);
 app.use('/.well-known', autoconfigRoutes);
 app.use('/', autoconfigRoutes);
 
