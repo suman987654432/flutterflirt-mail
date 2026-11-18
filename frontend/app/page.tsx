@@ -102,6 +102,7 @@ interface EmailMessage {
     size: string;
     contentType?: string;
     dataUrl?: string;
+    downloadUrl?: string;
     isInline?: boolean;
   }[];
 }
@@ -177,6 +178,8 @@ export default function WebmailPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
+  // High-performance In-Memory Cache for full email messages & attachments (key: `${folder}:${uid}`)
+  const messageDetailsCache = React.useRef<Map<string, EmailMessage>>(new Map());
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -683,6 +686,59 @@ export default function WebmailPage() {
         if (mapped.length > 0 && !selectedMessage) {
           handleSelectMessage(mapped[0], authToken, folderName);
         }
+
+        // Smart Background Prefetch: Cache top 3-4 emails so clicking them is 0ms instant!
+        if (mapped.length > 0 && authToken) {
+          const prefetchList = mapped.slice(0, 4);
+          setTimeout(() => {
+            prefetchList.forEach(async (pMsg) => {
+              const pKey = `${folderName}:${pMsg.uid}`;
+              if (!messageDetailsCache.current.has(pKey)) {
+                try {
+                  const pRes = await fetch(`/api/mail/folders/${encodeURIComponent(folderName)}/messages/${pMsg.uid}`, {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                  });
+                  if (pRes.ok) {
+                    const pFull = await pRes.json();
+                    const pSnippet = (pFull.text || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+                    let pHtml = pFull.html || `<div style="white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13.5px; padding: 12px; line-height: 1.6; color: #201f1e;">${pFull.text || ''}</div>`;
+                    const pAtts = (pFull.attachments || []).map((a: any, idx: number) => ({
+                      id: a.id ?? idx,
+                      filename: a.filename || `attachment-${idx + 1}`,
+                      size: typeof a.size === 'number' ? `${Math.round(a.size / 1024)} KB` : (a.size || ''),
+                      contentType: a.contentType || 'application/octet-stream',
+                      dataUrl: a.dataUrl || '',
+                      downloadUrl: a.downloadUrl || `/api/mail/folders/${encodeURIComponent(folderName)}/messages/${pMsg.uid}/attachments/${idx}`,
+                      isInline: !!a.isInline,
+                    }));
+                    pAtts.forEach((att: any) => {
+                      if (att.cid && att.dataUrl) {
+                        const cleanCid = att.cid.replace(/^<|>$/g, '');
+                        const pattern = new RegExp(`src=["']cid:<?${cleanCid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}>?["']`, 'gi');
+                        pHtml = pHtml.replace(pattern, `src="${att.dataUrl}"`);
+                      }
+                    });
+                    pHtml = pHtml.replace(/alt=["']Inserted photo["']/gi, 'alt=""');
+
+                    messageDetailsCache.current.set(pKey, {
+                      ...pMsg,
+                      snippet: pSnippet || pMsg.snippet,
+                      subject: pFull.subject || pMsg.subject,
+                      from: pFull.from || pMsg.from,
+                      bodyHtml: pHtml,
+                      security: {
+                        spf: pFull.security?.spf ? 'pass' : 'none',
+                        dkim: pFull.security?.dkim ? 'pass' : 'none',
+                        dmarc: pFull.security?.dmarc ? 'pass' : 'none',
+                      },
+                      attachments: pAtts,
+                    });
+                  }
+                } catch (e) {}
+              }
+            });
+          }, 700);
+        }
       }
     } catch (err) {
       console.warn('Could not fetch messages:', err);
@@ -692,17 +748,43 @@ export default function WebmailPage() {
   };
 
   const handleSelectMessage = async (msg: EmailMessage, currentToken?: string, folderName?: string) => {
+    const tokenToUse = currentToken || token;
+    const targetFolder = folderName || FOLDER_MAP[activeFolder] || 'INBOX';
+    const cacheKey = `${targetFolder}:${msg.uid}`;
+
     // 1. Mark as read immediately in UI
     setMessages((prev) =>
       prev.map((m) => (m.uid === msg.uid ? { ...m, unread: false } : m))
     );
-    setSelectedMessage({ ...msg, unread: false });
 
-    const tokenToUse = currentToken || token;
-    const targetFolder = folderName || FOLDER_MAP[activeFolder] || 'INBOX';
+    // 2. High-performance In-Memory Cache Check (Instant 0ms switch without loading flicker)
+    const cached = messageDetailsCache.current.get(cacheKey);
+    if (cached && cached.bodyHtml) {
+      setSelectedMessage({
+        ...cached,
+        unread: false,
+        flagged: msg.flagged !== undefined ? msg.flagged : cached.flagged,
+      });
+
+      // Persist \Seen to IMAP asynchronously if it was unread
+      if (tokenToUse && msg.unread) {
+        fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokenToUse}`,
+          },
+          body: JSON.stringify({ read: true }),
+        }).catch(() => {});
+      }
+      return;
+    }
+
+    // Not in cache: show header preview immediately while fetching full body
+    setSelectedMessage({ ...msg, unread: false });
     if (!tokenToUse) return;
 
-    // 2. Persist \Seen to IMAP
+    // Persist \Seen to IMAP
     fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
       method: 'PATCH',
       headers: {
@@ -724,13 +806,14 @@ export default function WebmailPage() {
         );
         let processedHtml = full.html || `<div style="white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13.5px; padding: 12px; line-height: 1.6; color: #201f1e;">${full.text || ''}</div>`;
 
-        // Format attachments
+        // Format attachments with downloadUrl
         const formattedAttachments = (full.attachments || []).map((a: any, idx: number) => ({
           id: a.id ?? idx,
           filename: a.filename || `attachment-${idx + 1}`,
           size: typeof a.size === 'number' ? `${Math.round(a.size / 1024)} KB` : (a.size || ''),
           contentType: a.contentType || 'application/octet-stream',
           dataUrl: a.dataUrl || '',
+          downloadUrl: a.downloadUrl || `/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}/attachments/${idx}`,
           isInline: !!a.isInline,
         }));
 
@@ -746,9 +829,9 @@ export default function WebmailPage() {
         // Strip ugly broken "Inserted photo" alt text
         processedHtml = processedHtml.replace(/alt=["']Inserted photo["']/gi, 'alt=""');
 
-        setSelectedMessage((prev) => prev?.uid === msg.uid ? {
-          ...prev,
-          snippet: cleanSnippet || prev.snippet,
+        const fullMsgObj: EmailMessage = {
+          ...msg,
+          snippet: cleanSnippet || msg.snippet,
           subject: full.subject || msg.subject,
           from: full.from || msg.from,
           unread: false,
@@ -759,7 +842,12 @@ export default function WebmailPage() {
             dmarc: full.security?.dmarc ? 'pass' : 'none',
           },
           attachments: formattedAttachments,
-        } : prev);
+        };
+
+        // Cache in memory for instant subsequent loads
+        messageDetailsCache.current.set(cacheKey, fullMsgObj);
+
+        setSelectedMessage((prev) => prev?.uid === msg.uid ? fullMsgObj : prev);
       }
     } catch (err) {
       console.warn('Could not load full message details:', err);
@@ -810,6 +898,7 @@ export default function WebmailPage() {
     if (!msg) return;
     const uidToDelete = msg.uid;
     const targetFolder = FOLDER_MAP[activeFolder] || 'INBOX';
+    messageDetailsCache.current.delete(`${targetFolder}:${uidToDelete}`);
 
     // 1. Optimistically remove from UI
     const remaining = messages.filter((m) => m.uid !== uidToDelete);
@@ -2006,10 +2095,10 @@ export default function WebmailPage() {
                               className="group relative flex items-center gap-2.5 p-2.5 rounded-lg border border-[#e1dfdd] bg-[#faf9f8] hover:bg-[#f3f2f1] hover:border-[#c8c6c4] transition shadow-xs"
                             >
                               {/* Thumbnail or File Icon */}
-                              {isImg && att.dataUrl ? (
+                              {isImg && (att.dataUrl || att.downloadUrl) ? (
                                 <div className="w-12 h-12 rounded-md overflow-hidden bg-white border border-[#edebe9] shrink-0 flex items-center justify-center">
                                   <img
-                                    src={att.dataUrl}
+                                    src={att.dataUrl || att.downloadUrl}
                                     alt={att.filename}
                                     className="w-full h-full object-cover"
                                   />
@@ -2034,10 +2123,12 @@ export default function WebmailPage() {
                               </div>
 
                               {/* Download Link/Button */}
-                              {att.dataUrl && (
+                              {(att.downloadUrl || att.dataUrl) && (
                                 <a
-                                  href={att.dataUrl}
+                                  href={att.downloadUrl || att.dataUrl}
                                   download={att.filename}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="p-1.5 rounded-md hover:bg-[#edebe9] text-[#605e5c] hover:text-[#0078d4] transition shrink-0"
                                   title={`Download ${att.filename}`}
                                 >

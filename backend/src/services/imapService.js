@@ -14,6 +14,44 @@ function normalizeFolder(folder) {
   return folder;
 }
 
+// In-memory cache for parsed message bodies: key = `${email}:${folder}:${uid}`
+const parsedMessageCache = new Map();
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_CACHE_ENTRIES = 300;
+
+function getCachedMessage(key) {
+  const item = parsedMessageCache.get(key);
+  if (!item) return null;
+  if (Date.now() > item.expiresAt) {
+    parsedMessageCache.delete(key);
+    return null;
+  }
+  return item;
+}
+
+function setCachedMessage(key, clientPayload, rawAttachments) {
+  if (parsedMessageCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = parsedMessageCache.keys().next().value;
+    if (oldestKey) parsedMessageCache.delete(oldestKey);
+  }
+  parsedMessageCache.set(key, {
+    clientPayload,
+    rawAttachments,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+}
+
+export function invalidateMessageCache(email, folder, uid) {
+  if (uid) {
+    parsedMessageCache.delete(`${email}:${folder}:${uid}`);
+  } else {
+    const prefix = `${email}:${folder}:`;
+    for (const k of parsedMessageCache.keys()) {
+      if (k.startsWith(prefix)) parsedMessageCache.delete(k);
+    }
+  }
+}
+
 export class ImapService {
   /**
    * Creates an authenticated ImapFlow client using Dovecot Master User
@@ -131,6 +169,12 @@ export class ImapService {
    * Read single full message, parsing body, attachments & auth headers
    */
   static async getMessage(email, folder, uid) {
+    const cacheKey = `${email}:${folder}:${uid}`;
+    const cached = getCachedMessage(cacheKey);
+    if (cached) {
+      return cached.clientPayload;
+    }
+
     const client = this.getClient(email);
     await client.connect();
     try {
@@ -151,21 +195,39 @@ export class ImapService {
         let bodyHtml = parsed.html || parsed.textAsHtml || `<pre>${parsed.text || ''}</pre>`;
 
         // Format and process attachments
+        const rawAttachments = [];
         const attachmentsList = (parsed.attachments || []).map((att, idx) => {
           const rawCid = (att.cid || '').replace(/^<|>$/g, '').trim();
           const mime = att.contentType || 'application/octet-stream';
-          const b64 = att.content ? att.content.toString('base64') : '';
-          const dataUrl = `data:${mime};base64,${b64}`;
           const isInline = !!att.related || att.contentDisposition === 'inline' || !!rawCid;
+          const attSize = att.size || (att.content ? att.content.length : 0);
+
+          // For inline images or small attachments (<= 500KB), generate dataUrl for instant display
+          let dataUrl = '';
+          if (isInline || attSize <= 500 * 1024) {
+            const b64 = att.content ? att.content.toString('base64') : '';
+            dataUrl = `data:${mime};base64,${b64}`;
+          }
+
+          const downloadUrl = `/api/mail/folders/${encodeURIComponent(folder)}/messages/${uid}/attachments/${idx}`;
+
+          rawAttachments.push({
+            id: idx,
+            filename: att.filename || `attachment-${idx + 1}`,
+            contentType: mime,
+            size: attSize,
+            content: att.content,
+          });
 
           return {
             id: idx,
             filename: att.filename || `attachment-${idx + 1}`,
             contentType: mime,
-            size: att.size || (att.content ? att.content.length : 0),
+            size: attSize,
             cid: rawCid,
             isInline,
             dataUrl,
+            downloadUrl,
           };
         });
 
@@ -180,7 +242,7 @@ export class ImapService {
           });
         }
 
-        return {
+        const clientPayload = {
           uid: parseInt(uid, 10),
           subject: parsed.subject || '(No Subject)',
           from: parsed.from?.value?.[0] || { address: 'unknown' },
@@ -197,12 +259,33 @@ export class ImapService {
           },
           attachments: attachmentsList,
         };
+
+        // Cache in memory for instant subsequent loads
+        setCachedMessage(cacheKey, clientPayload, rawAttachments);
+
+        return clientPayload;
       } finally {
         lock.release();
       }
     } finally {
       await client.logout().catch(() => {});
     }
+  }
+
+  /**
+   * Retrieves an attachment by index
+   */
+  static async getAttachment(email, folder, uid, attachmentIndex) {
+    const cacheKey = `${email}:${folder}:${uid}`;
+    let cached = getCachedMessage(cacheKey);
+    if (!cached) {
+      await this.getMessage(email, folder, uid);
+      cached = getCachedMessage(cacheKey);
+    }
+    if (cached && cached.rawAttachments && cached.rawAttachments[attachmentIndex]) {
+      return cached.rawAttachments[attachmentIndex];
+    }
+    return null;
   }
 
   /**
@@ -230,6 +313,8 @@ export class ImapService {
         }
         if (updates.moveTo) {
           await client.messageMove({ uid: String(uid) }, updates.moveTo, { uid: true });
+          invalidateMessageCache(email, folder, uid);
+          invalidateMessageCache(email, updates.moveTo, uid);
         }
         return { success: true };
       } finally {
@@ -244,6 +329,7 @@ export class ImapService {
    * Delete message (moves to Trash or expunges)
    */
   static async deleteMessage(email, folder, uid) {
+    invalidateMessageCache(email, folder, uid);
     const client = this.getClient(email);
     await client.connect();
     try {

@@ -83,6 +83,31 @@ router.get('/folders/:f/messages/:uid', async (req, res) => {
 });
 
 /**
+ * 3b. Download/Stream Single Attachment
+ */
+router.get('/folders/:f/messages/:uid/attachments/:id', async (req, res) => {
+  const { f: folder, uid, id } = req.params;
+  const email = req.user?.email || 'admin@codeaddabot.in';
+  const attIndex = parseInt(id, 10);
+
+  try {
+    const attachment = await ImapService.getAttachment(email, folder, uid, attIndex);
+    if (!attachment || !attachment.content) {
+      return res.status(404).json({ error: 'Attachment not found' });
+    }
+
+    res.setHeader('Content-Type', attachment.contentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.filename)}"`);
+    res.setHeader('Content-Length', attachment.size);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.end(attachment.content);
+  } catch (err) {
+    console.error('[Attachment Download Error]:', err.message);
+    res.status(500).json({ error: 'Failed to download attachment' });
+  }
+});
+
+/**
  * 4. Update Message Flags (mark read/unread, flag, move)
  */
 router.patch('/folders/:f/messages/:uid', async (req, res) => {
