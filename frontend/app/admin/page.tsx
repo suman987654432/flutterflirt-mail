@@ -56,7 +56,7 @@ export default function AdminConsolePage() {
   // Admin Auth Gate State
   const [isAdminAuth, setIsAdminAuth] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [adminRole, setAdminRole] = useState<'superadmin' | 'tenant_admin'>('superadmin');
+  const [adminRole, setAdminRole] = useState<'superadmin' | 'tenant_admin' | 'domain_admin'>('superadmin');
   const [adminLoginEmail, setAdminLoginEmail] = useState('admin@codeaddabot.in');
   const [adminLoginPassword, setAdminLoginPassword] = useState('AdminPassword123!');
   const [adminLoginError, setAdminLoginError] = useState('');
@@ -504,11 +504,16 @@ export default function AdminConsolePage() {
           </Link>
 
           <div className="mt-3 px-3 py-2 bg-slate-900/60 rounded-lg flex items-center justify-between text-[11px] text-slate-400">
-            <span className="truncate">{currentAdminEmail}</span>
+            <div className="flex flex-col truncate pr-2">
+              <span className="truncate text-white font-medium">{currentAdminEmail}</span>
+              <span className="text-[10px] text-blue-400 font-semibold capitalize">
+                {adminRole === 'superadmin' ? 'Superadmin' : adminRole === 'domain_admin' ? 'Domain Admin' : 'Tenant Admin'}
+              </span>
+            </div>
             <button
               onClick={handleAdminLogout}
               title="Logout from Admin Console"
-              className="text-slate-500 hover:text-red-400 transition ml-2"
+              className="text-slate-500 hover:text-red-400 transition shrink-0"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -631,9 +636,11 @@ export default function AdminConsolePage() {
               {/* Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'CLIENTS', value: String(clients.length || 1), sub: 'Active tenants' },
-                  { label: 'DOMAINS', value: String(domains.length || 2), sub: `${domains.filter(d => d.mx).length} verified` },
-                  { label: 'MAILBOXES', value: String(users.length || 3), sub: 'across all domains' },
+                  ...(adminRole === 'superadmin'
+                    ? [{ label: 'CLIENTS', value: String(clients.length || 1), sub: 'Active tenants' }]
+                    : [{ label: 'ACCOUNT ROLE', value: adminRole === 'domain_admin' ? 'Domain Admin' : 'Tenant Admin', sub: 'Scoped Administration' }]),
+                  { label: 'DOMAINS', value: String(domains.length), sub: `${domains.filter(d => d.mx).length} verified` },
+                  { label: 'MAILBOXES', value: String(users.length), sub: adminRole === 'domain_admin' ? 'in this domain' : 'across all domains' },
                   { label: 'DMARC PASS RATE', value: '99.37%', sub: 'last 7 days' },
                 ].map(card => (
                   <div key={card.label} className="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-sm">
@@ -725,15 +732,19 @@ export default function AdminConsolePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-2xl font-bold text-white mb-1">Domains</h1>
-                  <p className="text-xs text-slate-400">Live domains registered in database</p>
+                  <p className="text-xs text-slate-400">
+                    {adminRole === 'domain_admin' ? 'Your active domain configuration' : 'Live domains registered in database'}
+                  </p>
                 </div>
-                <button
-                  onClick={() => setIsAddDomainModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add domain
-                </button>
+                {adminRole !== 'domain_admin' && (
+                  <button
+                    onClick={() => setIsAddDomainModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add domain
+                  </button>
+                )}
               </div>
 
               <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
@@ -798,16 +809,18 @@ export default function AdminConsolePage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {/* Domain Filter */}
-                  <select
-                    value={filterDomain}
-                    onChange={e => setFilterDomain(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-medium"
-                  >
-                    <option value="all">All Domains ({domains.length})</option>
-                    {domains.map(d => (
-                      <option key={d.id} value={d.name}>{d.name}</option>
-                    ))}
-                  </select>
+                  {domains.length > 1 && (
+                    <select
+                      value={filterDomain}
+                      onChange={e => setFilterDomain(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 text-slate-300 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 font-medium"
+                    >
+                      <option value="all">All Domains ({domains.length})</option>
+                      {domains.map(d => (
+                        <option key={d.id} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                  )}
 
                   <button
                     onClick={() => {

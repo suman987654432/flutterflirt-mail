@@ -19,20 +19,17 @@ export const authenticateToken = (req, res, next) => {
 };
 
 export const requireSuperadmin = (req, res, next) => {
-  if (
-    req.user?.role === 'superadmin' ||
-    (req.user?.email && req.user.email.startsWith('admin@'))
-  ) {
+  if (req.user?.role === 'superadmin') {
     return next();
   }
-  return res.status(403).json({ error: 'Requires FlutterFlirt superadmin privileges' });
+  return res.status(403).json({ error: 'Requires server superadmin privileges' });
 };
 
 export const requireAdmin = (req, res, next) => {
   if (
     req.user?.role === 'superadmin' ||
     req.user?.role === 'tenant_admin' ||
-    (req.user?.email && req.user.email.startsWith('admin@'))
+    req.user?.role === 'domain_admin'
   ) {
     return next();
   }
@@ -40,7 +37,12 @@ export const requireAdmin = (req, res, next) => {
 };
 
 export const requireMailbox = (req, res, next) => {
-  if (req.user?.type !== 'mailbox' && req.user?.role !== 'superadmin' && req.user?.role !== 'tenant_admin') {
+  if (
+    req.user?.type !== 'mailbox' &&
+    req.user?.role !== 'superadmin' &&
+    req.user?.role !== 'tenant_admin' &&
+    req.user?.role !== 'domain_admin'
+  ) {
     return res.status(403).json({ error: 'Requires mailbox authentication' });
   }
   next();

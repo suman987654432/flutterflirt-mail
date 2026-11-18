@@ -140,8 +140,11 @@ router.get('/domains', async (req, res) => {
     `;
     const params = [];
 
-    // Tenant admin scoped to their company
-    if (req.user.role === 'tenant_admin') {
+    // Scope restrictions
+    if (req.user.role === 'domain_admin') {
+      sql += ' WHERE d.id = $1';
+      params.push(req.user.domainId);
+    } else if (req.user.role === 'tenant_admin') {
       sql += ' WHERE d.tenant_id = $1';
       params.push(req.user.tenantId);
     }
@@ -156,6 +159,10 @@ router.get('/domains', async (req, res) => {
 });
 
 router.post('/domains', async (req, res) => {
+  if (req.user.role === 'domain_admin') {
+    return res.status(403).json({ error: 'Domain administrators cannot add new domains. Please contact your system superadmin.' });
+  }
+
   const { name, tenantId } = req.body;
   const targetTenantId = req.user.role === 'superadmin' ? (tenantId || req.user.tenantId) : req.user.tenantId;
 
@@ -197,6 +204,9 @@ router.get('/domains/:id/dns', async (req, res) => {
     const domain = result.rows[0];
 
     // Scope check
+    if (req.user.role === 'domain_admin' && domain.id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized access to this domain' });
+    }
     if (req.user.role === 'tenant_admin' && domain.tenant_id !== req.user.tenantId) {
       return res.status(403).json({ error: 'Unauthorized access to this domain' });
     }
@@ -221,6 +231,9 @@ router.post('/domains/:id/verify', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Domain not found' });
     const domain = result.rows[0];
 
+    if (req.user.role === 'domain_admin' && domain.id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
     if (req.user.role === 'tenant_admin' && domain.tenant_id !== req.user.tenantId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
@@ -253,11 +266,19 @@ router.patch('/domains/:id/dmarc', async (req, res) => {
   }
 
   try {
+    const checkDom = await query('SELECT id, tenant_id FROM domains WHERE id = $1', [id]);
+    if (checkDom.rows.length === 0) return res.status(404).json({ error: 'Domain not found' });
+    if (req.user.role === 'domain_admin' && checkDom.rows[0].id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin' && checkDom.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     const result = await query(
       'UPDATE domains SET dmarc_policy = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
       [policy, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Domain not found' });
 
     await auditLog(req.user.email, 'UPDATE_DMARC_POLICY', id, { policy });
     res.json(result.rows[0]);
@@ -269,6 +290,15 @@ router.patch('/domains/:id/dmarc', async (req, res) => {
 router.get('/domains/:id/dmarc-reports', async (req, res) => {
   const { id } = req.params;
   try {
+    const checkDom = await query('SELECT id, tenant_id FROM domains WHERE id = $1', [id]);
+    if (checkDom.rows.length === 0) return res.status(404).json({ error: 'Domain not found' });
+    if (req.user.role === 'domain_admin' && checkDom.rows[0].id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin' && checkDom.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     const reportsRes = await query(
       `SELECT * FROM dmarc_reports WHERE domain_id = $1 ORDER BY date_end DESC LIMIT 50`,
       [id]
@@ -314,10 +344,29 @@ router.get('/mailboxes', async (req, res) => {
       LEFT JOIN admins a ON a.email = m.email
     `;
     const params = [];
+    const conditions = [];
+
+    // Scope enforcement
+    if (req.user.role === 'domain_admin') {
+      conditions.push(`m.domain_id = $${params.length + 1}`);
+      params.push(req.user.domainId);
+    } else if (req.user.role === 'tenant_admin') {
+      conditions.push(`d.tenant_id = $${params.length + 1}`);
+      params.push(req.user.tenantId);
+    }
+
     if (domainId) {
-      sql += ' WHERE m.domain_id = $1';
+      if (req.user.role === 'domain_admin' && domainId !== req.user.domainId) {
+        return res.status(403).json({ error: 'Unauthorized to view mailboxes for this domain' });
+      }
+      conditions.push(`m.domain_id = $${params.length + 1}`);
       params.push(domainId);
     }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+
     sql += ' ORDER BY m.created_at DESC';
     const result = await query(sql, params);
     res.json(result.rows);
@@ -329,6 +378,15 @@ router.get('/mailboxes', async (req, res) => {
 router.get('/domains/:id/mailboxes', async (req, res) => {
   const { id } = req.params;
   try {
+    if (req.user.role === 'domain_admin' && id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin') {
+      const checkDom = await query('SELECT tenant_id FROM domains WHERE id = $1', [id]);
+      if (checkDom.rows.length === 0 || checkDom.rows[0].tenant_id !== req.user.tenantId) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+    }
     const result = await query(
       `SELECT id, email, display_name, quota_mb, active, created_at, updated_at
        FROM mailboxes WHERE domain_id = $1 ORDER BY email ASC`,
@@ -344,6 +402,11 @@ router.post('/mailboxes', async (req, res) => {
   const { domainId, localPart, displayName, password, quotaMb = 10240, role = 'user' } = req.body;
   if (!domainId || !localPart || !password) {
     return res.status(400).json({ error: 'domainId, localPart, and password are required' });
+  }
+
+  // Scope verification
+  if (req.user.role === 'domain_admin' && domainId !== req.user.domainId) {
+    return res.status(403).json({ error: 'Unauthorized. You can only create mailboxes in your own domain.' });
   }
 
   try {
@@ -382,13 +445,14 @@ router.post('/mailboxes', async (req, res) => {
       [domainId, email, displayName || localPart, hash, quotaMb]
     );
 
-    // If role is admin, also register as tenant_admin
+    // If role is admin, also register in admins table with appropriate scope
     if (role === 'admin') {
+      const assignedRole = req.user.role === 'superadmin' ? 'tenant_admin' : 'domain_admin';
       await query(
-        `INSERT INTO admins (tenant_id, email, password_hash, role, active)
-         VALUES ($1, $2, $3, 'tenant_admin', true)
-         ON CONFLICT (email) DO UPDATE SET password_hash = $3, role = 'tenant_admin'`,
-        [domInfo.tenant_id, email, hash]
+        `INSERT INTO admins (tenant_id, domain_id, email, password_hash, role, active)
+         VALUES ($1, $2, $3, $4, $5, true)
+         ON CONFLICT (email) DO UPDATE SET password_hash = $4, role = $5, domain_id = $2`,
+        [domInfo.tenant_id, domainId, email, hash, assignedRole]
       );
     }
 
@@ -404,6 +468,19 @@ router.patch('/mailboxes/:id', async (req, res) => {
   const { displayName, password, quotaMb, active } = req.body;
 
   try {
+    // Scope check
+    const mbCheck = await query(
+      'SELECT m.id, m.domain_id, d.tenant_id FROM mailboxes m JOIN domains d ON m.domain_id = d.id WHERE m.id = $1',
+      [id]
+    );
+    if (mbCheck.rows.length === 0) return res.status(404).json({ error: 'Mailbox not found' });
+    if (req.user.role === 'domain_admin' && mbCheck.rows[0].domain_id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized to modify this mailbox' });
+    }
+    if (req.user.role === 'tenant_admin' && mbCheck.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized to modify this mailbox' });
+    }
+
     const updates = [];
     const values = [id];
     let counter = 2;
@@ -421,7 +498,6 @@ router.patch('/mailboxes/:id', async (req, res) => {
 
     const sql = `UPDATE mailboxes SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1 RETURNING id, email, display_name, quota_mb, active`;
     const result = await query(sql, values);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Mailbox not found' });
 
     await auditLog(req.user.email, 'UPDATE_MAILBOX', id, { active, quotaMb });
     res.json(result.rows[0]);
@@ -433,9 +509,20 @@ router.patch('/mailboxes/:id', async (req, res) => {
 router.delete('/mailboxes/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await query('DELETE FROM mailboxes WHERE id = $1 RETURNING email', [id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Mailbox not found' });
+    // Scope check
+    const mbCheck = await query(
+      'SELECT m.id, m.domain_id, d.tenant_id FROM mailboxes m JOIN domains d ON m.domain_id = d.id WHERE m.id = $1',
+      [id]
+    );
+    if (mbCheck.rows.length === 0) return res.status(404).json({ error: 'Mailbox not found' });
+    if (req.user.role === 'domain_admin' && mbCheck.rows[0].domain_id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this mailbox' });
+    }
+    if (req.user.role === 'tenant_admin' && mbCheck.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this mailbox' });
+    }
 
+    const result = await query('DELETE FROM mailboxes WHERE id = $1 RETURNING email', [id]);
     await auditLog(req.user.email, 'DELETE_MAILBOX', id, { email: result.rows[0].email });
     res.json({ success: true, message: 'Mailbox deleted successfully' });
   } catch (err) {
@@ -449,6 +536,16 @@ router.delete('/mailboxes/:id', async (req, res) => {
 router.get('/domains/:id/aliases', async (req, res) => {
   const { id } = req.params;
   try {
+    if (req.user.role === 'domain_admin' && id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin') {
+      const checkDom = await query('SELECT tenant_id FROM domains WHERE id = $1', [id]);
+      if (checkDom.rows.length === 0 || checkDom.rows[0].tenant_id !== req.user.tenantId) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+    }
+
     const result = await query(
       'SELECT * FROM aliases WHERE domain_id = $1 ORDER BY source ASC',
       [id]
@@ -466,6 +563,16 @@ router.post('/aliases', async (req, res) => {
   }
 
   try {
+    if (req.user.role === 'domain_admin' && domainId !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin') {
+      const checkDom = await query('SELECT tenant_id FROM domains WHERE id = $1', [domainId]);
+      if (checkDom.rows.length === 0 || checkDom.rows[0].tenant_id !== req.user.tenantId) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+    }
+
     const result = await query(
       `INSERT INTO aliases (domain_id, source, destination, active)
        VALUES ($1, $2, $3, true) RETURNING *`,
@@ -482,9 +589,19 @@ router.post('/aliases', async (req, res) => {
 router.delete('/aliases/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await query('DELETE FROM aliases WHERE id = $1 RETURNING source', [id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Alias not found' });
+    const alCheck = await query(
+      'SELECT a.id, a.domain_id, d.tenant_id FROM aliases a JOIN domains d ON a.domain_id = d.id WHERE a.id = $1',
+      [id]
+    );
+    if (alCheck.rows.length === 0) return res.status(404).json({ error: 'Alias not found' });
+    if (req.user.role === 'domain_admin' && alCheck.rows[0].domain_id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin' && alCheck.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
 
+    const result = await query('DELETE FROM aliases WHERE id = $1 RETURNING source', [id]);
     await auditLog(req.user.email, 'DELETE_ALIAS', id, { source: result.rows[0].source });
     res.json({ success: true });
   } catch (err) {
