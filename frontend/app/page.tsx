@@ -69,6 +69,10 @@ import {
   Palette,
   Download,
   File,
+  Star,
+  Check,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 
 interface EmailMessage {
@@ -95,6 +99,17 @@ interface EmailMessage {
     dataUrl?: string;
     isInline?: boolean;
   }[];
+}
+
+interface UserTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  important: boolean;
+  dueDate?: string;
+  createdAt: string;
+  sourceEmailUid?: number;
+  sourceEmailSubject?: string;
 }
 
 // Google Docs / Outlook style palette constants (Exact match to user's design)
@@ -225,7 +240,7 @@ export default function WebmailPage() {
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  // 7. Coming Soon Modal State (Calendar, Groups & Contacts, To Do)
+  // 7. Coming Soon Modal State (Calendar, Groups & Contacts)
   const [comingSoonModal, setComingSoonModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -235,6 +250,82 @@ export default function WebmailPage() {
     features: string[];
   } | null>(null);
 
+  // 8. Real Functional To-Do & Tasks State (Microsoft To-Do / Google Tasks)
+  const [isTaskPanelOpen, setIsTaskPanelOpen] = useState(false);
+  const [tasks, setTasks] = useState<UserTask[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDueDate, setNewTaskDueDate] = useState<'today' | 'tomorrow' | 'none'>('none');
+  const [newTaskImportant, setNewTaskImportant] = useState(false);
+  const [taskFilter, setTaskFilter] = useState<'all' | 'today' | 'important' | 'completed'>('all');
+
+  const updateTasks = (newTasks: UserTask[]) => {
+    setTasks(newTasks);
+    try {
+      localStorage.setItem('ffmail_tasks', JSON.stringify(newTasks));
+    } catch { }
+  };
+
+  const handleAddTask = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+    const task: UserTask = {
+      id: `task-${Date.now()}`,
+      title: newTaskTitle.trim(),
+      completed: false,
+      important: newTaskImportant,
+      dueDate: newTaskDueDate === 'today' ? 'Today' : newTaskDueDate === 'tomorrow' ? 'Tomorrow' : undefined,
+      createdAt: new Date().toISOString(),
+    };
+    updateTasks([task, ...tasks]);
+    setNewTaskTitle('');
+    setNewTaskDueDate('none');
+    setNewTaskImportant(false);
+    showToast('Task added to To-Do.', 'success');
+  };
+
+  const handleToggleTaskComplete = (taskId: string) => {
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, completed: !t.completed } : t
+    );
+    updateTasks(updated);
+  };
+
+  const handleToggleTaskImportant = (taskId: string) => {
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, important: !t.important } : t
+    );
+    updateTasks(updated);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    const updated = tasks.filter((t) => t.id !== taskId);
+    updateTasks(updated);
+    showToast('Task deleted.', 'info');
+  };
+
+  const handleCreateTaskFromEmail = (msg: EmailMessage) => {
+    const task: UserTask = {
+      id: `task-${Date.now()}`,
+      title: `Follow up: ${msg.subject || '(no subject)'}`,
+      completed: false,
+      important: true,
+      dueDate: 'Today',
+      createdAt: new Date().toISOString(),
+      sourceEmailUid: msg.uid,
+      sourceEmailSubject: msg.subject,
+    };
+    updateTasks([task, ...tasks]);
+    setIsTaskPanelOpen(true);
+    showToast('Added email to To-Do tasks!', 'success');
+  };
+
+  const filteredTasks = tasks.filter((task) => {
+    if (taskFilter === 'today') return task.dueDate === 'Today';
+    if (taskFilter === 'important') return task.important && !task.completed;
+    if (taskFilter === 'completed') return task.completed;
+    return true;
+  });
+
   // Check login on mount
   useEffect(() => {
     const savedToken = localStorage.getItem('ffmail_token');
@@ -243,6 +334,43 @@ export default function WebmailPage() {
     if (savedSig) {
       setSavedSignature(savedSig);
       setCustomSignatureInput(savedSig);
+    }
+
+    // Load saved tasks or initialize realistic starter tasks
+    const savedTasks = localStorage.getItem('ffmail_tasks');
+    if (savedTasks) {
+      try {
+        setTasks(JSON.parse(savedTasks));
+      } catch { }
+    } else {
+      const starterTasks: UserTask[] = [
+        {
+          id: 'task-1',
+          title: 'Review Amazon SES production access status',
+          completed: false,
+          important: true,
+          dueDate: 'Today',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'task-2',
+          title: 'Verify Custom MAIL FROM Domain (bounces.codeaddabot.in)',
+          completed: true,
+          important: false,
+          dueDate: 'Today',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'task-3',
+          title: 'Test inline photo & attachment downloads in Webmail',
+          completed: false,
+          important: false,
+          dueDate: 'Tomorrow',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      setTasks(starterTasks);
+      localStorage.setItem('ffmail_tasks', JSON.stringify(starterTasks));
     }
     if (savedToken) {
       setToken(savedToken);
@@ -1270,29 +1398,23 @@ export default function WebmailPage() {
               </span>
             </button>
 
-            {/* To Do (Coming Soon) */}
+            {/* To Do / Tasks (Real Functional) */}
             <button
               type="button"
-              onClick={() => {
-                setComingSoonModal({
-                  isOpen: true,
-                  title: 'Tasks & To-Do',
-                  subtitle: 'Convert emails into actionable reminders and to-do lists',
-                  icon: 'todo',
-                  phase: 'Phase 3 (Roadmap)',
-                  features: [
-                    'Turn any email into a flagged task in 1-click',
-                    'Due date reminders and priority color tagging',
-                    'Categorized personal and team project checklists',
-                  ],
-                });
-              }}
-              title="To Do (Coming Soon)"
-              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition relative group"
+              onClick={() => setIsTaskPanelOpen(!isTaskPanelOpen)}
+              title="To-Do & Tasks"
+              className={`p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition relative group ${
+                isTaskPanelOpen ? 'bg-[#edebe9] text-[#0078d4]' : ''
+              }`}
             >
               <CheckSquare className="w-5 h-5" />
+              {tasks.filter((t) => !t.completed).length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#0078d4] text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                  {tasks.filter((t) => !t.completed).length}
+                </span>
+              )}
               <span className="absolute left-full ml-2 px-2 py-1 bg-[#201f1e] text-white text-[11px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-50">
-                To Do (Coming Soon)
+                To-Do & Tasks ({tasks.filter((t) => !t.completed).length})
               </span>
             </button>
           </div>
@@ -1749,6 +1871,14 @@ export default function WebmailPage() {
                       <span>Forward</span>
                     </button>
                     <button
+                      onClick={() => handleCreateTaskFromEmail(selectedMessage)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md border border-[#0078d4] hover:bg-blue-50 text-[#0078d4] text-xs font-semibold shadow-sm transition"
+                      title="Convert this email into a To-Do reminder"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5 text-[#0078d4]" />
+                      <span>Add to To-Do</span>
+                    </button>
+                    <button
                       onClick={() => handleDeleteMessage(selectedMessage)}
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold shadow-sm transition"
                     >
@@ -1925,6 +2055,25 @@ export default function WebmailPage() {
                     <span>Contacts & Groups</span>
                   </div>
                   <span className="text-[10px] text-[#a19f9d] font-medium">Soon</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsTaskPanelOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] text-[#323130] hover:bg-[#edebe9] transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <CheckSquare className="w-4 h-4 text-[#0078d4]" />
+                    <span>To-Do & Tasks</span>
+                  </div>
+                  {tasks.filter((t) => !t.completed).length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#0078d4] text-white">
+                      {tasks.filter((t) => !t.completed).length}
+                    </span>
+                  )}
                 </button>
               </div>
 
@@ -3432,6 +3581,224 @@ export default function WebmailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 8. Microsoft To-Do / Google Tasks Slide-over Drawer */}
+      {isTaskPanelOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] transition-opacity"
+            onClick={() => setIsTaskPanelOpen(false)}
+          />
+          <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white shadow-2xl border-l border-[#edebe9] flex flex-col animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-[#0078d4] to-[#106ebe] text-white flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-xs">
+                  <CheckSquare className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold leading-tight">To-Do & Tasks</h3>
+                  <p className="text-[11px] text-white/80">
+                    {tasks.filter((t) => !t.completed).length} active {tasks.filter((t) => !t.completed).length === 1 ? 'task' : 'tasks'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTaskPanelOpen(false)}
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 p-2 bg-[#f8fafd] border-b border-[#edebe9] text-xs font-medium">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'today', label: 'Today' },
+                { id: 'important', label: '⭐ Important' },
+                { id: 'completed', label: 'Completed' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setTaskFilter(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                    taskFilter === tab.id
+                      ? 'bg-white text-[#0078d4] shadow-xs font-semibold'
+                      : 'text-[#605e5c] hover:text-[#201f1e] hover:bg-white/60'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Add Task Input Form */}
+            <form onSubmit={handleAddTask} className="p-3 bg-white border-b border-[#edebe9]">
+              <div className="flex items-center gap-2 bg-[#f3f2f1] rounded-xl px-3 py-2 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0078d4] border border-transparent focus-within:border-transparent transition">
+                <input
+                  type="text"
+                  placeholder="+ Add a task..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  className="w-full bg-transparent text-xs text-[#201f1e] placeholder-[#a19f9d] focus:outline-hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNewTaskImportant(!newTaskImportant)}
+                  title={newTaskImportant ? 'Marked as Important' : 'Mark as Important'}
+                  className={`p-1 rounded transition ${
+                    newTaskImportant ? 'text-amber-500' : 'text-[#a19f9d] hover:text-[#605e5c]'
+                  }`}
+                >
+                  <Star className={`w-4 h-4 ${newTaskImportant ? 'fill-amber-400' : ''}`} />
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newTaskTitle.trim()}
+                  className="px-3 py-1 bg-[#0078d4] hover:bg-[#106ebe] disabled:bg-[#c8c6c4] text-white text-xs font-semibold rounded-lg transition active:scale-95"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Quick Due Date Chips */}
+              <div className="flex items-center gap-1.5 mt-2 px-1">
+                <span className="text-[10px] text-[#a19f9d] flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Due:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNewTaskDueDate(newTaskDueDate === 'today' ? 'none' : 'today')}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition ${
+                    newTaskDueDate === 'today'
+                      ? 'bg-blue-100 text-[#0078d4] font-semibold'
+                      : 'bg-[#f3f2f1] text-[#605e5c] hover:bg-[#edebe9]'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewTaskDueDate(newTaskDueDate === 'tomorrow' ? 'none' : 'tomorrow')}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition ${
+                    newTaskDueDate === 'tomorrow'
+                      ? 'bg-blue-100 text-[#0078d4] font-semibold'
+                      : 'bg-[#f3f2f1] text-[#605e5c] hover:bg-[#edebe9]'
+                  }`}
+                >
+                  Tomorrow
+                </button>
+              </div>
+            </form>
+
+            {/* Task Items List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {filteredTasks.length === 0 ? (
+                <div className="py-12 text-center text-[#a19f9d]">
+                  <CheckSquare className="w-8 h-8 mx-auto mb-2 text-[#c8c6c4]" />
+                  <p className="text-xs font-semibold text-[#605e5c]">No tasks in this view</p>
+                  <p className="text-[11px] text-[#a19f9d] mt-0.5">
+                    {taskFilter === 'completed'
+                      ? 'No completed tasks yet.'
+                      : 'Add a new task above or convert any email to a task.'}
+                  </p>
+                </div>
+              ) : (
+                filteredTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className={`group flex items-start gap-2.5 p-2.5 rounded-xl border transition ${
+                      task.completed
+                        ? 'bg-[#faf9f8] border-[#edebe9] opacity-60'
+                        : 'bg-white border-[#e1dfdd] hover:border-[#0078d4] shadow-xs'
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleTaskComplete(task.id)}
+                      className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center transition shrink-0 ${
+                        task.completed
+                          ? 'bg-[#0078d4] border-[#0078d4] text-white'
+                          : 'border-[#8a8886] hover:border-[#0078d4]'
+                      }`}
+                    >
+                      {task.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </button>
+
+                    {/* Task Content */}
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={`text-xs leading-snug break-words ${
+                          task.completed
+                            ? 'line-through text-[#8a8886]'
+                            : 'text-[#201f1e] font-medium'
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+
+                      {/* Badges */}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {task.dueDate && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-50 text-[#0078d4]">
+                            <Clock className="w-2.5 h-2.5" />
+                            {task.dueDate}
+                          </span>
+                        )}
+                        {task.sourceEmailSubject && (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-[#f3f2f1] text-[#605e5c] max-w-[200px] truncate"
+                            title={`Linked email: ${task.sourceEmailSubject}`}
+                          >
+                            <Mail className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate">{task.sourceEmailSubject}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions: Star & Delete */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTaskImportant(task.id)}
+                        className={`p-1 rounded transition ${
+                          task.important
+                            ? 'text-amber-500'
+                            : 'text-[#c8c6c4] hover:text-[#605e5c] opacity-0 group-hover:opacity-100'
+                        }`}
+                        title={task.important ? 'Important' : 'Mark as important'}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${task.important ? 'fill-amber-400' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-1 rounded text-[#c8c6c4] hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+                        title="Delete task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer Summary */}
+            <div className="p-3 bg-[#f8fafd] border-t border-[#edebe9] text-[11px] text-[#605e5c] flex items-center justify-between">
+              <span>Saved locally in browser</span>
+              <span className="font-semibold text-[#0078d4]">
+                {tasks.filter((t) => t.completed).length} of {tasks.length} completed
+              </span>
+            </div>
+          </aside>
+        </>
       )}
 
       {/* 7. Universal Clean Toast (Zero window.alert) */}
