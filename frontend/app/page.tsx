@@ -881,9 +881,19 @@ export default function WebmailPage() {
     const cacheKey = `${targetFolder}:${msg.uid}`;
 
     // 1. Mark as read immediately in UI
-    setMessages((prev) =>
-      prev.map((m) => (m.uid === msg.uid ? { ...m, unread: false } : m))
-    );
+    if (msg.unread) {
+      setMessages((prev) =>
+        prev.map((m) => (m.uid === msg.uid ? { ...m, unread: false } : m))
+      );
+      setFolderCounts((prev) => {
+        const matchingFolderId = Object.keys(FOLDER_MAP).find((k) => FOLDER_MAP[k] === targetFolder) || 'inbox';
+        const current = prev[matchingFolderId] || { unread: 0, total: 0 };
+        return {
+          ...prev,
+          [matchingFolderId]: { ...current, unread: Math.max(0, current.unread - 1) },
+        };
+      });
+    }
 
     // 2. High-performance In-Memory Cache Check (Instant 0ms switch without loading flicker)
     const cached = messageDetailsCache.current.get(cacheKey);
@@ -1453,6 +1463,38 @@ export default function WebmailPage() {
     return true;
   });
 
+  // Smart Folder Badge: Shows unread count if unread > 0, otherwise shows total count if total > 0
+  const getFolderBadge = (folderId: string) => {
+    const stats = folderCounts[folderId] || { unread: 0, total: 0 };
+    if (folderId === 'inbox') {
+      if (stats.unread > 0) return { count: stats.unread, isUnread: true };
+      if (stats.total > 0) return { count: stats.total, isUnread: false };
+      return null;
+    }
+    if (folderId === 'junk') {
+      if (stats.unread > 0) return { count: stats.unread, isUnread: true };
+      if (stats.total > 0) return { count: stats.total, isUnread: false };
+      return null;
+    }
+    if (folderId === 'drafts') {
+      if (stats.total > 0) return { count: stats.total, isUnread: false };
+      return null;
+    }
+    if (folderId === 'sent') {
+      if (stats.total > 0) return { count: stats.total, isUnread: false };
+      return null;
+    }
+    if (folderId === 'trash') {
+      if (stats.total > 0) return { count: stats.total, isUnread: false };
+      return null;
+    }
+    if (folderId === 'archive') {
+      if (stats.total > 0) return { count: stats.total, isUnread: false };
+      return null;
+    }
+    return null;
+  };
+
   // Loading Splash Screen
   if (isInitializing) {
     return (
@@ -1893,15 +1935,16 @@ export default function WebmailPage() {
 
               <nav className="mt-1 space-y-0.5">
                 {[
-                  { id: 'inbox', label: 'Inbox', icon: Inbox, count: folderCounts.inbox?.unread },
-                  { id: 'drafts', label: 'Drafts', icon: FileText, count: folderCounts.drafts?.total },
+                  { id: 'inbox', label: 'Inbox', icon: Inbox },
+                  { id: 'drafts', label: 'Drafts', icon: FileText },
                   { id: 'sent', label: 'Sent Items', icon: Send },
                   { id: 'archive', label: 'Archive', icon: Archive },
-                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon, count: folderCounts.junk?.unread },
+                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon },
                   { id: 'trash', label: 'Deleted Items', icon: Trash2 },
                 ].map((f) => {
                   const Icon = f.icon;
                   const isActive = activeFolder === f.id;
+                  const badge = getFolderBadge(f.id);
                   return (
                     <button
                       key={f.id}
@@ -1915,9 +1958,15 @@ export default function WebmailPage() {
                         <Icon className={`w-4 h-4 ${isActive ? 'text-[#0078d4]' : 'text-[#605e5c]'}`} />
                         <span>{f.label}</span>
                       </div>
-                      {f.count !== undefined && f.count > 0 && (
-                        <span className="text-[#0078d4] font-bold text-[11px] px-1.5 py-0.2 rounded-full bg-[#0078d4]/10">
-                          {f.count}
+                      {badge && badge.count > 0 && (
+                        <span
+                          className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold transition ${
+                            badge.isUnread
+                              ? 'bg-[#0078d4] text-white shadow-xs'
+                              : 'bg-[#0078d4]/10 text-[#0078d4]'
+                          }`}
+                        >
+                          {badge.count}
                         </span>
                       )}
                     </button>
@@ -2394,15 +2443,16 @@ export default function WebmailPage() {
               </div>
               <nav className="space-y-0.5">
                 {[
-                  { id: 'inbox', label: 'Inbox', icon: Inbox, count: folderCounts.inbox?.unread },
-                  { id: 'drafts', label: 'Drafts', icon: FileText, count: folderCounts.drafts?.total },
+                  { id: 'inbox', label: 'Inbox', icon: Inbox },
+                  { id: 'drafts', label: 'Drafts', icon: FileText },
                   { id: 'sent', label: 'Sent Items', icon: Send },
                   { id: 'archive', label: 'Archive', icon: Archive },
-                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon, count: folderCounts.junk?.unread },
+                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon },
                   { id: 'trash', label: 'Deleted Items', icon: Trash2 },
                 ].map((f) => {
                   const Icon = f.icon;
                   const isActive = activeFolder === f.id;
+                  const badge = getFolderBadge(f.id);
                   return (
                     <button
                       key={f.id}
@@ -2416,9 +2466,15 @@ export default function WebmailPage() {
                         <Icon className={`w-4 h-4 ${isActive ? 'text-[#0078d4]' : 'text-[#605e5c]'}`} />
                         <span>{f.label}</span>
                       </div>
-                      {f.count !== undefined && f.count > 0 && (
-                        <span className="text-[#0078d4] font-bold text-[11px] px-1.5 py-0.2 rounded-full bg-[#0078d4]/10">
-                          {f.count}
+                      {badge && badge.count > 0 && (
+                        <span
+                          className={`text-[11px] px-1.5 py-0.2 rounded-full font-bold transition ${
+                            badge.isUnread
+                              ? 'bg-[#0078d4] text-white shadow-xs'
+                              : 'bg-[#0078d4]/10 text-[#0078d4]'
+                          }`}
+                        >
+                          {badge.count}
                         </span>
                       )}
                     </button>
