@@ -182,6 +182,10 @@ export default function WebmailPage() {
   const messageDetailsCache = React.useRef<Map<string, EmailMessage>>(new Map());
   // Per-folder message list cache (key: folderName e.g. 'INBOX', 'Sent', etc.)
   const folderMessagesCacheRef = React.useRef<Map<string, EmailMessage[]>>(new Map());
+  // Live Active Folder Ref & Incrementing Request ID (Prevents React stale closures and async race conditions)
+  const activeFolderRef = React.useRef<string>(activeFolder);
+  activeFolderRef.current = activeFolder;
+  const folderRequestIdRef = React.useRef<number>(0);
   // Real folder counts (unread & total) for each folder
   const [folderCounts, setFolderCounts] = useState<{ [key: string]: { unread: number; total: number } }>({
     inbox: { unread: 0, total: 0 },
@@ -631,6 +635,10 @@ export default function WebmailPage() {
   const handleSwitchFolder = (folderId: string) => {
     if (folderId === activeFolder) return;
     const targetFolder = FOLDER_MAP[folderId] || 'INBOX';
+
+    // Invalidate any in-flight background requests immediately
+    folderRequestIdRef.current += 1;
+    activeFolderRef.current = folderId;
     setActiveFolder(folderId);
     setSelectedMessage(null);
     setIsMobileMenuOpen(false);
@@ -720,6 +728,7 @@ export default function WebmailPage() {
   };
 
   const fetchFolderMessages = async (folderName: string, authToken: string, isSilent = false) => {
+    const thisRequestId = ++folderRequestIdRef.current;
     const existingCache = folderMessagesCacheRef.current.get(folderName);
     if (!isSilent && (!existingCache || existingCache.length === 0)) {
       setIsLoadingMessages(true);
@@ -745,10 +754,10 @@ export default function WebmailPage() {
           security: { spf: 'pass', dkim: 'pass', dmarc: 'pass' },
         }));
 
-        // Cache messages for this specific folder
+        // Always cache folder data
         folderMessagesCacheRef.current.set(folderName, mapped);
 
-        // Update real unread/total count for this folder
+        // Update real unread/total count for this folder in sidebar
         const matchingFolderId = Object.keys(FOLDER_MAP).find((k) => FOLDER_MAP[k] === folderName) || 'inbox';
         const unreadCount = mapped.filter((m) => m.unread).length;
         setFolderCounts((prev) => ({
@@ -756,10 +765,14 @@ export default function WebmailPage() {
           [matchingFolderId]: { unread: unreadCount, total: mapped.length },
         }));
 
-        // CRITICAL: Only update active messages if user is STILL viewing this folder!
-        const currentActiveKey = FOLDER_MAP[activeFolder] || 'INBOX';
-        if (folderName === currentActiveKey) {
+        // CRITICAL RACE-CONDITION & STALE-CLOSURE PREVENTION:
+        // Only update active UI view if:
+        // 1. This request is STILL the latest request initiated (thisRequestId === folderRequestIdRef.current)
+        // 2. The user is STILL viewing this folder (folderName === FOLDER_MAP[activeFolderRef.current])
+        const currentActiveKey = FOLDER_MAP[activeFolderRef.current] || 'INBOX';
+        if (thisRequestId === folderRequestIdRef.current && folderName === currentActiveKey) {
           setMessages(mapped);
+          setIsLoadingMessages(false);
           if (mapped.length > 0 && !selectedMessage) {
             handleSelectMessage(mapped[0], authToken, folderName);
           }
@@ -962,6 +975,13 @@ export default function WebmailPage() {
       setSelectedMessage((prev) => (prev ? { ...prev, unread: nextUnread } : null));
     }
     const targetFolder = FOLDER_MAP[activeFolder] || 'INBOX';
+    const cached = folderMessagesCacheRef.current.get(targetFolder);
+    if (cached) {
+      folderMessagesCacheRef.current.set(
+        targetFolder,
+        cached.map((m) => (m.uid === msg.uid ? { ...m, unread: nextUnread } : m))
+      );
+    }
     fetch(`/api/mail/folders/${encodeURIComponent(targetFolder)}/messages/${msg.uid}`, {
       method: 'PATCH',
       headers: {
@@ -981,6 +1001,15 @@ export default function WebmailPage() {
     // 1. Optimistically remove from UI
     const remaining = messages.filter((m) => m.uid !== uidToDelete);
     setMessages(remaining);
+
+    // Keep folder cache in sync
+    const cached = folderMessagesCacheRef.current.get(targetFolder);
+    if (cached) {
+      folderMessagesCacheRef.current.set(
+        targetFolder,
+        cached.filter((m) => m.uid !== uidToDelete)
+      );
+    }
 
     // 2. Select next email if deleted was selected
     if (selectedMessage?.uid === uidToDelete) {
@@ -1884,7 +1913,7 @@ export default function WebmailPage() {
               <span className="font-bold text-base text-[#201f1e] capitalize flex items-center gap-2">
                 {activeFolder === 'trash' ? 'Deleted Items' : activeFolder === 'junk' ? 'Junk Email' : activeFolder === 'sent' ? 'Sent Items' : activeFolder}
                 <span className="text-xs font-normal text-[#605e5c]">
-                  {isLoadingMessages && messages.length === 0 ? '' : `(${filteredMessages.length})`}
+                  {isLoadingMessages ? '' : `(${filteredMessages.length})`}
                 </span>
               </span>
 
@@ -1940,7 +1969,7 @@ export default function WebmailPage() {
 
           {/* Email Row List */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#edebe9]">
-            {isLoadingMessages && messages.length === 0 ? (
+            {isLoadingMessages ? (
               <div className="p-8 text-center text-[#605e5c] text-xs">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#0078d4]" />
                 Loading messages...
