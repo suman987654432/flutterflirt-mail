@@ -225,6 +225,16 @@ export default function WebmailPage() {
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
+  // 7. Coming Soon Modal State (Calendar, Groups & Contacts, To Do)
+  const [comingSoonModal, setComingSoonModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle: string;
+    icon: 'calendar' | 'users' | 'todo';
+    phase: string;
+    features: string[];
+  } | null>(null);
+
   // Check login on mount
   useEffect(() => {
     const savedToken = localStorage.getItem('ffmail_token');
@@ -1206,31 +1216,84 @@ export default function WebmailPage() {
               </button>
             </div>
 
-            {/* Calendar */}
+            {/* Calendar (Coming Soon) */}
             <button
               type="button"
-              title="Calendar"
-              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition"
+              onClick={() => {
+                setComingSoonModal({
+                  isOpen: true,
+                  title: 'Calendar & Scheduling',
+                  subtitle: 'Seamlessly schedule meetings and sync events with your team',
+                  icon: 'calendar',
+                  phase: 'Phase 3 (Roadmap)',
+                  features: [
+                    'Personal & team shared calendars',
+                    'CalDAV sync with iPhone, Android & Outlook',
+                    'One-click meeting invites & .ics event RSVP',
+                    'Timezone conversion & smart availability scheduling',
+                  ],
+                });
+              }}
+              title="Calendar (Coming Soon)"
+              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition relative group"
             >
               <Calendar className="w-5 h-5" />
+              <span className="absolute left-full ml-2 px-2 py-1 bg-[#201f1e] text-white text-[11px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-50">
+                Calendar (Coming Soon)
+              </span>
             </button>
 
-            {/* People */}
+            {/* People & Groups (Coming Soon) */}
             <button
               type="button"
-              title="People / Contacts"
-              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition"
+              onClick={() => {
+                setComingSoonModal({
+                  isOpen: true,
+                  title: 'People, Groups & Contacts',
+                  subtitle: 'Centralized address book and team distribution lists',
+                  icon: 'users',
+                  phase: 'Phase 3 (Roadmap)',
+                  features: [
+                    'Company-wide contact directory & custom groups',
+                    'CardDAV contact sync with iOS & Android devices',
+                    'Team distribution lists (sales@, support@, team@)',
+                    'Smart contact search and automatic email auto-complete',
+                  ],
+                });
+              }}
+              title="People & Groups (Coming Soon)"
+              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition relative group"
             >
               <Users className="w-5 h-5" />
+              <span className="absolute left-full ml-2 px-2 py-1 bg-[#201f1e] text-white text-[11px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-50">
+                People & Groups (Coming Soon)
+              </span>
             </button>
 
-            {/* To Do */}
+            {/* To Do (Coming Soon) */}
             <button
               type="button"
-              title="To Do"
-              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition"
+              onClick={() => {
+                setComingSoonModal({
+                  isOpen: true,
+                  title: 'Tasks & To-Do',
+                  subtitle: 'Convert emails into actionable reminders and to-do lists',
+                  icon: 'todo',
+                  phase: 'Phase 3 (Roadmap)',
+                  features: [
+                    'Turn any email into a flagged task in 1-click',
+                    'Due date reminders and priority color tagging',
+                    'Categorized personal and team project checklists',
+                  ],
+                });
+              }}
+              title="To Do (Coming Soon)"
+              className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition relative group"
             >
               <CheckSquare className="w-5 h-5" />
+              <span className="absolute left-full ml-2 px-2 py-1 bg-[#201f1e] text-white text-[11px] rounded shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-50">
+                To Do (Coming Soon)
+              </span>
             </button>
           </div>
 
@@ -1805,6 +1868,65 @@ export default function WebmailPage() {
                   );
                 })}
               </nav>
+
+              {/* Workspace Coming Soon on Mobile */}
+              <div className="mt-3 pt-2 border-t border-[#edebe9]">
+                <div className="px-2 py-1 text-[11px] font-bold text-[#605e5c] uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Workspace</span>
+                  <span className="text-[10px] bg-blue-100 text-[#0078d4] font-semibold px-1.5 py-0.2 rounded-full">Coming Soon</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setComingSoonModal({
+                      isOpen: true,
+                      title: 'Calendar & Scheduling',
+                      subtitle: 'Seamlessly schedule meetings and sync events with your team',
+                      icon: 'calendar',
+                      phase: 'Phase 3 (Roadmap)',
+                      features: [
+                        'Personal & team shared calendars',
+                        'CalDAV sync with iPhone, Android & Outlook',
+                        'One-click meeting invites & .ics event RSVP',
+                      ],
+                    });
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] text-[#323130] hover:bg-[#edebe9] transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Calendar className="w-4 h-4 text-[#0078d4]" />
+                    <span>Calendar</span>
+                  </div>
+                  <span className="text-[10px] text-[#a19f9d] font-medium">Soon</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setComingSoonModal({
+                      isOpen: true,
+                      title: 'People, Groups & Contacts',
+                      subtitle: 'Centralized address book and team distribution lists',
+                      icon: 'users',
+                      phase: 'Phase 3 (Roadmap)',
+                      features: [
+                        'Company-wide contact directory & custom groups',
+                        'CardDAV contact sync with iOS & Android devices',
+                        'Team distribution lists (sales@, support@, team@)',
+                      ],
+                    });
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] text-[#323130] hover:bg-[#edebe9] transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4 text-[#0078d4]" />
+                    <span>Contacts & Groups</span>
+                  </div>
+                  <span className="text-[10px] text-[#a19f9d] font-medium">Soon</span>
+                </button>
+              </div>
 
               {/* Admin Link if admin */}
               {userEmail.startsWith('admin@') && (
@@ -3241,7 +3363,78 @@ export default function WebmailPage() {
         </div>
       )}
 
-      {/* 6. Universal Clean Toast (Zero window.alert) */}
+      {/* 6. Coming Soon Feature Modal (Calendar, People & Groups, To-Do) */}
+      {comingSoonModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#dadce0] w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150 select-none">
+            {/* Header with Pattern / Color Background */}
+            <div className="px-6 pt-6 pb-4 bg-gradient-to-br from-[#f8fafd] to-[#edf2fa] border-b border-[#dadce0] relative">
+              <button
+                type="button"
+                onClick={() => setComingSoonModal(null)}
+                className="absolute top-4 right-4 text-[#5f6368] hover:text-[#202124] p-1.5 rounded-full hover:bg-black/5 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-[#0078d4] text-white flex items-center justify-center shadow-md">
+                  {comingSoonModal.icon === 'calendar' && <Calendar className="w-6 h-6" />}
+                  {comingSoonModal.icon === 'users' && <Users className="w-6 h-6" />}
+                  {comingSoonModal.icon === 'todo' && <CheckSquare className="w-6 h-6" />}
+                </div>
+                <div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-100 text-[#0078d4]">
+                    🚀 Coming Soon • {comingSoonModal.phase}
+                  </span>
+                  <h3 className="text-base font-bold text-[#202124] mt-1">
+                    {comingSoonModal.title}
+                  </h3>
+                </div>
+              </div>
+              <p className="text-xs text-[#5f6368] mt-2 leading-relaxed">
+                {comingSoonModal.subtitle}
+              </p>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="p-6 space-y-3 bg-white">
+              <div className="text-[11px] font-bold text-[#5f6368] uppercase tracking-wider mb-2">
+                What to expect:
+              </div>
+              <div className="space-y-2.5">
+                {comingSoonModal.features.map((feat, idx) => (
+                  <div key={idx} className="flex items-start gap-2.5 text-xs text-[#3c4043]">
+                    <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[10px]">
+                      ✓
+                    </div>
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-[#f8fafd] border-t border-[#dadce0] flex items-center justify-between">
+              <span className="text-[11px] text-[#70757a]">
+                FlutterFlirt Mail Roadmap
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setComingSoonModal(null);
+                  showToast('Thanks for your interest! We will notify you when this feature launches.', 'success');
+                }}
+                className="px-5 py-2 text-xs font-semibold text-white bg-[#0078d4] hover:bg-[#106ebe] rounded-lg transition shadow-sm active:scale-95"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Universal Clean Toast (Zero window.alert) */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-[#202124] text-white text-xs font-medium rounded-xl shadow-2xl animate-in slide-in-from-bottom duration-200 border border-white/10">
           {toast.type === 'success' && <CheckCircle className="w-4 h-4 text-[#34a853] shrink-0" />}
