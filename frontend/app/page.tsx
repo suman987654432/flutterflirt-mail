@@ -699,6 +699,17 @@ export default function WebmailPage() {
       const authToken = data.token;
       const email = data.user?.email || loginEmail.trim();
 
+      // Wipe previous session in-memory caches and state clean
+      folderRequestIdRef.current += 1;
+      folderMessagesCacheRef.current.clear();
+      messageDetailsCache.current.clear();
+      setMessages([]);
+      setSelectedMessage(null);
+      setTasks([]);
+      setActiveFolder('inbox');
+      activeFolderRef.current = 'inbox';
+      setIsLoadingMessages(true);
+
       localStorage.setItem('ffmail_token', authToken);
       localStorage.setItem('ffmail_user_email', email);
       setToken(authToken);
@@ -706,7 +717,7 @@ export default function WebmailPage() {
       setComposeFrom(email);
       setIsAuthenticated(true);
 
-      // Load inbox and tasks from database immediately
+      // Load new user's inbox and tasks from database immediately
       await fetchFolderMessages('INBOX', authToken);
       fetchAllFolderStats(authToken);
       fetchTasksFromDb(authToken);
@@ -718,13 +729,39 @@ export default function WebmailPage() {
   };
 
   const handleSignOut = () => {
+    // Invalidate any in-flight requests immediately
+    folderRequestIdRef.current += 1;
+
+    // Remove stored credentials
     localStorage.removeItem('ffmail_token');
     localStorage.removeItem('ffmail_user_email');
+    localStorage.removeItem('ffmail_tasks');
+
+    // Wipe all in-memory caches completely so second user never sees first user's emails
+    folderMessagesCacheRef.current.clear();
+    messageDetailsCache.current.clear();
+
+    // Reset all mail, task, and folder state
     setToken('');
+    setUserEmail('');
+    setComposeFrom('');
     setIsAuthenticated(false);
+    setActiveFolder('inbox');
+    activeFolderRef.current = 'inbox';
     setMessages([]);
     setSelectedMessage(null);
+    setTasks([]);
+    setFolderCounts({
+      inbox: { unread: 0, total: 0 },
+      sent: { unread: 0, total: 0 },
+      drafts: { unread: 0, total: 0 },
+      archive: { unread: 0, total: 0 },
+      junk: { unread: 0, total: 0 },
+      trash: { unread: 0, total: 0 },
+    });
+    setIsLoadingMessages(false);
     setIsProfileOpen(false);
+    setIsMobileMenuOpen(false);
   };
 
   const fetchFolderMessages = async (folderName: string, authToken: string, isSilent = false) => {
