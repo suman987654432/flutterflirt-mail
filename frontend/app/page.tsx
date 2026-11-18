@@ -2126,15 +2126,15 @@ export default function WebmailPage() {
                 )}
               </div>
 
-              {/* Rich Text Formatting Toolbar (One Single Line - No Scrollbar) */}
+              {/* Rich Text Formatting Toolbar (Responsive on Mobile with Touch Scroll) */}
               {showFormatBar && (
                 <div
-                  className="mx-3 mb-2 px-2 py-1 bg-[#edf2fa] border border-[#d3e3fd] rounded-lg flex items-center gap-0.5 sm:gap-1 text-[#444746] text-xs flex-nowrap select-none relative"
+                  className="mx-2 sm:mx-3 mb-2 px-2 py-1 bg-[#edf2fa] border border-[#d3e3fd] rounded-lg flex items-center gap-1 sm:gap-1 text-[#444746] text-xs select-none relative overflow-x-auto no-scrollbar touch-pan-x"
                 >
                   {/* Font Family Select */}
                   <select
                     onChange={(e) => formatText('fontName', e.target.value)}
-                    className="shrink-0 bg-transparent hover:bg-white/80 rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none cursor-pointer"
+                    className="shrink-0 bg-transparent hover:bg-white/80 rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none cursor-pointer max-w-[85px] sm:max-w-none truncate"
                     defaultValue="Sans-Serif"
                   >
                     <option value="Arial, sans-serif">Sans Serif</option>
@@ -2149,7 +2149,7 @@ export default function WebmailPage() {
                   {/* Font Size Select */}
                   <select
                     onChange={(e) => formatText('fontSize', e.target.value)}
-                    className="shrink-0 bg-transparent hover:bg-white/80 rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none cursor-pointer"
+                    className="shrink-0 bg-transparent hover:bg-white/80 rounded px-1.5 py-0.5 text-[11px] font-medium focus:outline-none cursor-pointer max-w-[70px] sm:max-w-none truncate"
                     defaultValue="3"
                   >
                     <option value="1">Small</option>
@@ -2165,7 +2165,7 @@ export default function WebmailPage() {
                     type="button"
                     title="Bold (Ctrl+B)"
                     onClick={() => formatText('bold')}
-                    className="shrink-0 p-1 rounded hover:bg-white/80 font-bold"
+                    className="shrink-0 p-1.5 sm:p-1 rounded hover:bg-white/80 font-bold"
                   >
                     <Bold className="w-3.5 h-3.5" />
                   </button>
@@ -2175,7 +2175,7 @@ export default function WebmailPage() {
                     type="button"
                     title="Italic (Ctrl+I)"
                     onClick={() => formatText('italic')}
-                    className="shrink-0 p-1 rounded hover:bg-white/80 italic"
+                    className="shrink-0 p-1.5 sm:p-1 rounded hover:bg-white/80 italic"
                   >
                     <Italic className="w-3.5 h-3.5" />
                   </button>
@@ -2185,7 +2185,7 @@ export default function WebmailPage() {
                     type="button"
                     title="Underline (Ctrl+U)"
                     onClick={() => formatText('underline')}
-                    className="shrink-0 p-1 rounded hover:bg-white/80 underline"
+                    className="shrink-0 p-1.5 sm:p-1 rounded hover:bg-white/80 underline"
                   >
                     <Underline className="w-3.5 h-3.5" />
                   </button>
@@ -2195,7 +2195,7 @@ export default function WebmailPage() {
                     type="button"
                     title="Strikethrough"
                     onClick={() => formatText('strikeThrough')}
-                    className="shrink-0 p-1 rounded hover:bg-white/80"
+                    className="shrink-0 p-1.5 sm:p-1 rounded hover:bg-white/80"
                   >
                     <Strikethrough className="w-3.5 h-3.5" />
                   </button>
@@ -2248,8 +2248,8 @@ export default function WebmailPage() {
                         className="fixed inset-0 z-40"
                         onClick={() => setShowColorPicker(false)}
                       />
-                      <div className="absolute bottom-full mb-2 left-2 sm:left-4 bg-white border border-[#dadce0] rounded-xl shadow-2xl p-4 z-50 select-none animate-in fade-in zoom-in-95 duration-150">
-                        <div className="flex gap-6 sm:gap-8">
+                      <div className="absolute bottom-full mb-2 left-0 sm:left-4 right-0 sm:right-auto mx-1 sm:mx-0 bg-white border border-[#dadce0] rounded-xl shadow-2xl p-3 sm:p-4 z-50 select-none animate-in fade-in zoom-in-95 duration-150 max-h-[75vh] overflow-y-auto">
+                        <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
                           {/* Left Column: Background colour */}
                           <div>
                             <div className="text-sm font-normal text-[#202124] mb-3">
