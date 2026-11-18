@@ -114,6 +114,9 @@ export default function AdminConsolePage() {
       localStorage.setItem('ffmail_admin_token', data.token);
       localStorage.setItem('ffmail_admin_email', data.user.email);
       localStorage.setItem('ffmail_admin_role', data.user.role || 'superadmin');
+      // Sync Webmail session so user stays on the same account
+      localStorage.setItem('ffmail_token', data.token);
+      localStorage.setItem('ffmail_user_email', data.user.email);
       setCurrentAdminEmail(data.user.email);
       setAdminRole(data.user.role || 'superadmin');
       setIsAdminAuth(true);
@@ -130,8 +133,22 @@ export default function AdminConsolePage() {
     localStorage.removeItem('ffmail_admin_token');
     localStorage.removeItem('ffmail_admin_email');
     localStorage.removeItem('ffmail_admin_role');
+    localStorage.removeItem('ffmail_token');
+    localStorage.removeItem('ffmail_user_email');
+    localStorage.removeItem('ffmail_tasks');
     setIsAdminAuth(false);
     setIsAuthChecking(false);
+  };
+
+  const navigateToWebmail = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const activeToken = localStorage.getItem('ffmail_admin_token');
+    const activeEmail = currentAdminEmail || localStorage.getItem('ffmail_admin_email');
+    if (activeToken && activeEmail) {
+      localStorage.setItem('ffmail_token', activeToken);
+      localStorage.setItem('ffmail_user_email', activeEmail);
+    }
+    window.location.href = '/';
   };
 
   // Fetch real data from backend
@@ -495,13 +512,13 @@ export default function AdminConsolePage() {
             Refresh Data
           </button>
 
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-900 transition"
+          <button
+            onClick={navigateToWebmail}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-900 transition"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Open Webmail</span>
-          </Link>
+          </button>
 
           <div className="mt-3 px-3 py-2 bg-slate-900/60 rounded-lg flex items-center justify-between text-[11px] text-slate-400">
             <div className="flex flex-col truncate pr-2">
@@ -581,13 +598,13 @@ export default function AdminConsolePage() {
             </div>
 
             <div className="pt-4 border-t border-slate-800 space-y-2">
-              <Link
-                href="/"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-900 transition"
+              <button
+                onClick={navigateToWebmail}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-900 transition"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Open Webmail</span>
-              </Link>
+              </button>
               <button
                 onClick={handleAdminLogout}
                 className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition border border-rose-500/20"
@@ -614,13 +631,13 @@ export default function AdminConsolePage() {
             </button>
             <span className="font-bold text-sm text-white capitalize">{activeTab}</span>
           </div>
-          <Link
-            href="/"
+          <button
+            onClick={navigateToWebmail}
             className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Webmail</span>
-          </Link>
+          </button>
         </div>
 
         <div className="p-4 sm:p-8 max-w-7xl w-full mx-auto space-y-6">

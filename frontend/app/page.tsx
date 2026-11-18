@@ -712,6 +712,21 @@ export default function WebmailPage() {
 
       localStorage.setItem('ffmail_token', authToken);
       localStorage.setItem('ffmail_user_email', email);
+
+      // Sync Admin Console credentials if account is an admin
+      if (
+        data.user?.role === 'superadmin' ||
+        data.user?.role === 'tenant_admin' ||
+        data.user?.role === 'domain_admin' ||
+        email.startsWith('admin@')
+      ) {
+        localStorage.setItem('ffmail_admin_token', authToken);
+        localStorage.setItem('ffmail_admin_email', email);
+        const domain = email.split('@')[1];
+        const assignedRole = data.user?.role || (domain === 'codeaddabot.in' || domain === 'flutterflirt.com' ? 'superadmin' : 'domain_admin');
+        localStorage.setItem('ffmail_admin_role', assignedRole);
+      }
+
       setToken(authToken);
       setUserEmail(email);
       setComposeFrom(email);
@@ -732,10 +747,13 @@ export default function WebmailPage() {
     // Invalidate any in-flight requests immediately
     folderRequestIdRef.current += 1;
 
-    // Remove stored credentials
+    // Remove stored credentials for both Webmail and Admin Console
     localStorage.removeItem('ffmail_token');
     localStorage.removeItem('ffmail_user_email');
     localStorage.removeItem('ffmail_tasks');
+    localStorage.removeItem('ffmail_admin_token');
+    localStorage.removeItem('ffmail_admin_email');
+    localStorage.removeItem('ffmail_admin_role');
 
     // Wipe all in-memory caches completely so second user never sees first user's emails
     folderMessagesCacheRef.current.clear();
@@ -762,6 +780,22 @@ export default function WebmailPage() {
     setIsLoadingMessages(false);
     setIsProfileOpen(false);
     setIsMobileMenuOpen(false);
+  };
+
+  const navigateToAdmin = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const activeToken = token || localStorage.getItem('ffmail_token');
+    const activeEmail = userEmail || localStorage.getItem('ffmail_user_email');
+    if (activeToken && activeEmail) {
+      localStorage.setItem('ffmail_admin_token', activeToken);
+      localStorage.setItem('ffmail_admin_email', activeEmail);
+      if (activeEmail.startsWith('admin@')) {
+        const domain = activeEmail.split('@')[1];
+        const assignedRole = (domain === 'codeaddabot.in' || domain === 'flutterflirt.com') ? 'superadmin' : 'domain_admin';
+        localStorage.setItem('ffmail_admin_role', assignedRole);
+      }
+    }
+    window.location.href = '/admin';
   };
 
   const fetchFolderMessages = async (folderName: string, authToken: string, isSilent = false) => {
@@ -1585,13 +1619,13 @@ export default function WebmailPage() {
             <div className="text-[11px] bg-[#f8f9fa] px-3 py-1.5 rounded border border-[#edebe9] text-[#323130] font-mono">
               admin@codeaddabot.in / AdminPassword123!
             </div>
-            <Link
+            <a
               href="/admin"
               className="inline-flex items-center gap-1.5 text-[#0078d4] hover:underline transition mt-1"
             >
               Admin Console & DNS Settings
               <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -1704,13 +1738,13 @@ export default function WebmailPage() {
           </button>
 
           {userEmail.startsWith('admin@') && (
-            <Link
-              href="/admin"
+            <button
+              onClick={navigateToAdmin}
               className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 text-white transition"
               title="Admin Console & DNS Settings"
             >
               <Settings className="w-4 h-4" />
-            </Link>
+            </button>
           )}
 
           {/* User Avatar Circle */}
@@ -1762,14 +1796,16 @@ export default function WebmailPage() {
 
                 <div className="p-2 space-y-0.5 bg-white">
                   {userEmail.startsWith('admin@') && (
-                    <Link
-                      href="/admin"
-                      onClick={() => setIsProfileOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#201f1e] hover:bg-[#f3f2f1] rounded transition"
+                    <button
+                      onClick={(e) => {
+                        setIsProfileOpen(false);
+                        navigateToAdmin(e);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#201f1e] hover:bg-[#f3f2f1] rounded transition text-left"
                     >
                       <Settings className="w-4 h-4 text-[#605e5c]" />
                       <span>Admin Console & DNS</span>
-                    </Link>
+                    </button>
                   )}
                   <button
                     onClick={() => {
@@ -1894,13 +1930,14 @@ export default function WebmailPage() {
           {/* Bottom Settings Icon */}
           <div className="w-full flex justify-center">
             {userEmail.startsWith('admin@') ? (
-              <Link
-                href="/admin"
+              <button
+                type="button"
+                onClick={navigateToAdmin}
                 title="Settings & Admin"
                 className="p-2 rounded hover:bg-[#edebe9] text-[#605e5c] hover:text-[#201f1e] transition"
               >
                 <Settings className="w-5 h-5" />
-              </Link>
+              </button>
             ) : (
               <button
                 type="button"
@@ -2563,14 +2600,16 @@ export default function WebmailPage() {
               {/* Admin Link if admin */}
               {userEmail.startsWith('admin@') && (
                 <div className="mt-3 pt-2 border-t border-[#edebe9]">
-                  <Link
-                    href="/admin"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-[#201f1e] hover:bg-[#edebe9] transition font-medium"
+                  <button
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      navigateToAdmin(e);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-[#201f1e] hover:bg-[#edebe9] transition font-medium text-left"
                   >
                     <Settings className="w-4 h-4 text-[#605e5c]" />
                     <span>Admin Console & DNS</span>
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>

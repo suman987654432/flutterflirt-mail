@@ -161,19 +161,22 @@ router.post('/mail/login', async (req, res) => {
 
     // Check if this mailbox user is also an admin in the admins table
     const adminCheck = await query(
-      `SELECT role FROM admins WHERE email = $1 AND active = true`,
+      `SELECT role, domain_id, tenant_id FROM admins WHERE email = $1 AND active = true`,
       [cleanEmail]
     );
 
-    const isSystemAdmin = mailbox.email.startsWith('admin@');
     let userRole = 'user';
     let userType = 'mailbox';
+    let domainId = mailbox.domain_id;
+    let tenantId = mailbox.tenant_id;
 
-    if (isSystemAdmin) {
-      userRole = 'superadmin';
+    if (adminCheck.rows.length > 0) {
+      userRole = adminCheck.rows[0].role;
       userType = 'admin';
-    } else if (adminCheck.rows.length > 0) {
-      userRole = adminCheck.rows[0].role || 'tenant_admin';
+      domainId = adminCheck.rows[0].domain_id || mailbox.domain_id;
+      tenantId = adminCheck.rows[0].tenant_id || mailbox.tenant_id;
+    } else if (cleanEmail.startsWith('admin@')) {
+      userRole = (mailbox.domain_name === 'codeaddabot.in' || mailbox.domain_name === 'flutterflirt.com') ? 'superadmin' : 'domain_admin';
       userType = 'admin';
     }
 
@@ -184,7 +187,9 @@ router.post('/mail/login', async (req, res) => {
         displayName: mailbox.display_name,
         quotaMb: mailbox.quota_mb,
         domain: mailbox.domain_name,
-        tenantId: mailbox.tenant_id,
+        domainId: domainId || null,
+        domainName: mailbox.domain_name,
+        tenantId: tenantId || null,
         type: userType,
         role: userRole,
       },
@@ -200,6 +205,10 @@ router.post('/mail/login', async (req, res) => {
         displayName: mailbox.display_name,
         quotaMb: mailbox.quota_mb,
         domain: mailbox.domain_name,
+        domainId: domainId || null,
+        domainName: mailbox.domain_name,
+        tenantId: tenantId || null,
+        role: userRole,
       },
     });
   } catch (err) {
