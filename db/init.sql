@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     completed BOOLEAN NOT NULL DEFAULT false,
     important BOOLEAN NOT NULL DEFAULT false,
     due_date VARCHAR(50),
+    priority VARCHAR(20) DEFAULT 'medium',
+    notes TEXT,
     source_email_uid INT,
     source_email_subject VARCHAR(500),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

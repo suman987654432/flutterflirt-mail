@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
   try {
     const result = await query(
       `SELECT id, user_id, user_email, title, completed, important, due_date, 
-              source_email_uid, source_email_subject, created_at, updated_at
+              priority, notes, source_email_uid, source_email_subject, created_at, updated_at
        FROM tasks
        WHERE user_email = $1
        ORDER BY completed ASC, important DESC, created_at DESC`,
@@ -35,6 +35,8 @@ router.get('/', async (req, res) => {
       completed: row.completed,
       important: row.important,
       dueDate: row.due_date || undefined,
+      priority: row.priority || 'medium',
+      notes: row.notes || '',
       sourceEmailUid: row.source_email_uid || undefined,
       sourceEmailSubject: row.source_email_subject || undefined,
       createdAt: row.created_at,
@@ -60,7 +62,7 @@ router.post('/', async (req, res) => {
     return res.status(401).json({ error: 'User email not found in token' });
   }
 
-  const { title, important = false, dueDate, sourceEmailUid, sourceEmailSubject } = req.body;
+  const { title, important = false, dueDate, priority = 'medium', notes = '', sourceEmailUid, sourceEmailSubject } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Task title is required' });
@@ -70,15 +72,19 @@ router.post('/', async (req, res) => {
     const cleanTitle = title.trim();
     const cleanDueDate = dueDate ? String(dueDate).trim() : null;
     const cleanImportant = Boolean(important);
+    const cleanPriority = ['high', 'medium', 'low'].includes(String(priority).toLowerCase())
+      ? String(priority).toLowerCase()
+      : 'medium';
+    const cleanNotes = notes ? String(notes).trim() : '';
     const cleanEmailUid = sourceEmailUid ? parseInt(sourceEmailUid, 10) : null;
     const cleanEmailSubject = sourceEmailSubject ? String(sourceEmailSubject).slice(0, 500) : null;
 
     const result = await query(
       `INSERT INTO tasks (
          user_id, user_email, title, completed, important, due_date,
-         source_email_uid, source_email_subject, created_at, updated_at
+         priority, notes, source_email_uid, source_email_subject, created_at, updated_at
        )
-       VALUES ($1, $2, $3, false, $4, $5, $6, $7, NOW(), NOW())
+       VALUES ($1, $2, $3, false, $4, $5, $6, $7, $8, $9, NOW(), NOW())
        RETURNING *`,
       [
         userId,
@@ -86,6 +92,8 @@ router.post('/', async (req, res) => {
         cleanTitle,
         cleanImportant,
         cleanDueDate,
+        cleanPriority,
+        cleanNotes,
         cleanEmailUid,
         cleanEmailSubject,
       ]
@@ -101,6 +109,8 @@ router.post('/', async (req, res) => {
         completed: row.completed,
         important: row.important,
         dueDate: row.due_date || undefined,
+        priority: row.priority || 'medium',
+        notes: row.notes || '',
         sourceEmailUid: row.source_email_uid || undefined,
         sourceEmailSubject: row.source_email_subject || undefined,
         createdAt: row.created_at,
@@ -115,7 +125,7 @@ router.post('/', async (req, res) => {
 
 /**
  * 3. PATCH /api/tasks/:id
- * Update task status (completed, important, title, dueDate).
+ * Update task status (completed, important, title, dueDate, priority, notes).
  * Strict isolation: user can only modify their own tasks.
  */
 router.patch('/:id', async (req, res) => {
@@ -126,7 +136,7 @@ router.patch('/:id', async (req, res) => {
     return res.status(401).json({ error: 'User email not found in token' });
   }
 
-  const { completed, important, title, dueDate } = req.body;
+  const { completed, important, title, dueDate, priority, notes } = req.body;
 
   try {
     // Check if task exists and belongs to this user
@@ -144,13 +154,15 @@ router.patch('/:id', async (req, res) => {
     const newImportant = important !== undefined ? Boolean(important) : current.important;
     const newTitle = title !== undefined && typeof title === 'string' && title.trim() ? title.trim() : current.title;
     const newDueDate = dueDate !== undefined ? (dueDate ? String(dueDate).trim() : null) : current.due_date;
+    const newPriority = priority !== undefined ? String(priority).toLowerCase() : (current.priority || 'medium');
+    const newNotes = notes !== undefined ? String(notes).trim() : (current.notes || '');
 
     const updateRes = await query(
       `UPDATE tasks
-       SET completed = $1, important = $2, title = $3, due_date = $4, updated_at = NOW()
-       WHERE id = $5 AND user_email = $6
+       SET completed = $1, important = $2, title = $3, due_date = $4, priority = $5, notes = $6, updated_at = NOW()
+       WHERE id = $7 AND user_email = $8
        RETURNING *`,
-      [newCompleted, newImportant, newTitle, newDueDate, taskId, userEmail]
+      [newCompleted, newImportant, newTitle, newDueDate, newPriority, newNotes, taskId, userEmail]
     );
 
     const row = updateRes.rows[0];
@@ -163,6 +175,8 @@ router.patch('/:id', async (req, res) => {
         completed: row.completed,
         important: row.important,
         dueDate: row.due_date || undefined,
+        priority: row.priority || 'medium',
+        notes: row.notes || '',
         sourceEmailUid: row.source_email_uid || undefined,
         sourceEmailSubject: row.source_email_subject || undefined,
         createdAt: row.created_at,
