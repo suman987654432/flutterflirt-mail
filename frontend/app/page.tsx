@@ -180,6 +180,17 @@ export default function WebmailPage() {
   const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
   // High-performance In-Memory Cache for full email messages & attachments (key: `${folder}:${uid}`)
   const messageDetailsCache = React.useRef<Map<string, EmailMessage>>(new Map());
+  // Per-folder message list cache (key: folderName e.g. 'INBOX', 'Sent', etc.)
+  const folderMessagesCacheRef = React.useRef<Map<string, EmailMessage[]>>(new Map());
+  // Real folder counts (unread & total) for each folder
+  const [folderCounts, setFolderCounts] = useState<{ [key: string]: { unread: number; total: number } }>({
+    inbox: { unread: 0, total: 0 },
+    sent: { unread: 0, total: 0 },
+    drafts: { unread: 0, total: 0 },
+    archive: { unread: 0, total: 0 },
+    junk: { unread: 0, total: 0 },
+    trash: { unread: 0, total: 0 },
+  });
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -579,6 +590,7 @@ export default function WebmailPage() {
       setIsAuthenticated(true);
       fetchFolderMessages('INBOX', savedToken);
       fetchTasksFromDb(savedToken);
+      fetchAllFolderStats(savedToken);
     }
     setIsInitializing(false);
   }, []);
@@ -590,6 +602,52 @@ export default function WebmailPage() {
     archive: 'Archive',
     junk: 'Junk',
     trash: 'Trash',
+  };
+
+  const fetchAllFolderStats = async (authToken: string) => {
+    try {
+      const res = await fetch('/api/mail/folders', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const folders = data.folders || [];
+        const newCounts: Record<string, { unread: number; total: number }> = {};
+        folders.forEach((f: any) => {
+          const fid = (f.name || f.path || '').toLowerCase();
+          const matchKey = Object.keys(FOLDER_MAP).find(
+            (k) => k === fid || FOLDER_MAP[k].toLowerCase() === fid
+          );
+          if (matchKey) {
+            newCounts[matchKey] = { unread: f.unread || 0, total: f.total || 0 };
+          }
+        });
+        setFolderCounts((prev) => ({ ...prev, ...newCounts }));
+      }
+    } catch { }
+  };
+
+  // Safe Instant Folder Switcher: prevents previous folder's emails or counts from leaking into the new folder
+  const handleSwitchFolder = (folderId: string) => {
+    if (folderId === activeFolder) return;
+    const targetFolder = FOLDER_MAP[folderId] || 'INBOX';
+    setActiveFolder(folderId);
+    setSelectedMessage(null);
+    setIsMobileMenuOpen(false);
+
+    const cachedList = folderMessagesCacheRef.current.get(targetFolder);
+    if (cachedList && cachedList.length > 0) {
+      // Instant switch: render target folder's messages immediately
+      setMessages(cachedList);
+      setIsLoadingMessages(false);
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        handleSelectMessage(cachedList[0], token, targetFolder);
+      }
+    } else {
+      // Clear previous folder's messages immediately so they never linger in the new folder!
+      setMessages([]);
+      setIsLoadingMessages(true);
+    }
   };
 
   // Fetch messages when folder or token changes
@@ -642,6 +700,7 @@ export default function WebmailPage() {
 
       // Load inbox and tasks from database immediately
       await fetchFolderMessages('INBOX', authToken);
+      fetchAllFolderStats(authToken);
       fetchTasksFromDb(authToken);
     } catch (err: any) {
       setLoginError(err.message || 'Login failed. Please check credentials.');
@@ -660,8 +719,11 @@ export default function WebmailPage() {
     setIsProfileOpen(false);
   };
 
-  const fetchFolderMessages = async (folderName: string, authToken: string) => {
-    setIsLoadingMessages(true);
+  const fetchFolderMessages = async (folderName: string, authToken: string, isSilent = false) => {
+    const existingCache = folderMessagesCacheRef.current.get(folderName);
+    if (!isSilent && (!existingCache || existingCache.length === 0)) {
+      setIsLoadingMessages(true);
+    }
     try {
       const res = await fetch(`/api/mail/folders/${encodeURIComponent(folderName)}/messages`, {
         headers: { Authorization: `Bearer ${authToken}` },
@@ -682,9 +744,25 @@ export default function WebmailPage() {
           bodyHtml: '',
           security: { spf: 'pass', dkim: 'pass', dmarc: 'pass' },
         }));
-        setMessages(mapped);
-        if (mapped.length > 0 && !selectedMessage) {
-          handleSelectMessage(mapped[0], authToken, folderName);
+
+        // Cache messages for this specific folder
+        folderMessagesCacheRef.current.set(folderName, mapped);
+
+        // Update real unread/total count for this folder
+        const matchingFolderId = Object.keys(FOLDER_MAP).find((k) => FOLDER_MAP[k] === folderName) || 'inbox';
+        const unreadCount = mapped.filter((m) => m.unread).length;
+        setFolderCounts((prev) => ({
+          ...prev,
+          [matchingFolderId]: { unread: unreadCount, total: mapped.length },
+        }));
+
+        // CRITICAL: Only update active messages if user is STILL viewing this folder!
+        const currentActiveKey = FOLDER_MAP[activeFolder] || 'INBOX';
+        if (folderName === currentActiveKey) {
+          setMessages(mapped);
+          if (mapped.length > 0 && !selectedMessage) {
+            handleSelectMessage(mapped[0], authToken, folderName);
+          }
         }
 
         // Smart Background Prefetch: Cache top 3-4 emails so clicking them is 0ms instant!
@@ -1749,11 +1827,11 @@ export default function WebmailPage() {
 
               <nav className="mt-1 space-y-0.5">
                 {[
-                  { id: 'inbox', label: 'Inbox', icon: Inbox, count: messages.filter((m) => m.unread).length },
-                  { id: 'drafts', label: 'Drafts', icon: FileText },
+                  { id: 'inbox', label: 'Inbox', icon: Inbox, count: folderCounts.inbox?.unread },
+                  { id: 'drafts', label: 'Drafts', icon: FileText, count: folderCounts.drafts?.total },
                   { id: 'sent', label: 'Sent Items', icon: Send },
                   { id: 'archive', label: 'Archive', icon: Archive },
-                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon },
+                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon, count: folderCounts.junk?.unread },
                   { id: 'trash', label: 'Deleted Items', icon: Trash2 },
                 ].map((f) => {
                   const Icon = f.icon;
@@ -1761,10 +1839,7 @@ export default function WebmailPage() {
                   return (
                     <button
                       key={f.id}
-                      onClick={() => {
-                        setActiveFolder(f.id);
-                        setSelectedMessage(null);
-                      }}
+                      onClick={() => handleSwitchFolder(f.id)}
                       className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[13px] transition ${isActive
                         ? 'bg-[#edebe9] font-semibold text-[#201f1e]'
                         : 'text-[#323130] hover:bg-[#edebe9]'
@@ -1807,8 +1882,10 @@ export default function WebmailPage() {
           <div className="border-b border-[#edebe9] bg-white">
             <div className="p-3 pb-1.5 flex items-center justify-between">
               <span className="font-bold text-base text-[#201f1e] capitalize flex items-center gap-2">
-                {activeFolder === 'trash' ? 'Deleted Items' : activeFolder === 'junk' ? 'Junk Email' : activeFolder}
-                <span className="text-xs font-normal text-[#605e5c]">({filteredMessages.length})</span>
+                {activeFolder === 'trash' ? 'Deleted Items' : activeFolder === 'junk' ? 'Junk Email' : activeFolder === 'sent' ? 'Sent Items' : activeFolder}
+                <span className="text-xs font-normal text-[#605e5c]">
+                  {isLoadingMessages && messages.length === 0 ? '' : `(${filteredMessages.length})`}
+                </span>
               </span>
 
               {/* Filter Dropdown Button */}
@@ -2251,11 +2328,11 @@ export default function WebmailPage() {
               </div>
               <nav className="space-y-0.5">
                 {[
-                  { id: 'inbox', label: 'Inbox', icon: Inbox, count: messages.filter((m) => m.unread).length },
-                  { id: 'drafts', label: 'Drafts', icon: FileText },
+                  { id: 'inbox', label: 'Inbox', icon: Inbox, count: folderCounts.inbox?.unread },
+                  { id: 'drafts', label: 'Drafts', icon: FileText, count: folderCounts.drafts?.total },
                   { id: 'sent', label: 'Sent Items', icon: Send },
                   { id: 'archive', label: 'Archive', icon: Archive },
-                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon },
+                  { id: 'junk', label: 'Junk Email', icon: AlertOctagon, count: folderCounts.junk?.unread },
                   { id: 'trash', label: 'Deleted Items', icon: Trash2 },
                 ].map((f) => {
                   const Icon = f.icon;
@@ -2263,11 +2340,7 @@ export default function WebmailPage() {
                   return (
                     <button
                       key={f.id}
-                      onClick={() => {
-                        setActiveFolder(f.id);
-                        setSelectedMessage(null);
-                        setIsMobileMenuOpen(false);
-                      }}
+                      onClick={() => handleSwitchFolder(f.id)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] transition ${isActive
                         ? 'bg-[#edebe9] font-semibold text-[#201f1e]'
                         : 'text-[#323130] hover:bg-[#edebe9]'
