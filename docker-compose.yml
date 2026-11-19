@@ -114,8 +114,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_SECURE: ${SMTP_SECURE:-true}
-      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN:-mail.flutterflirt.com}
-      DMARC_REPORT_EMAIL: ${DMARC_REPORT_EMAIL:-dmarc-reports@flutterflirt.com}
+      PLATFORM_DOMAIN: ${PLATFORM_DOMAIN}
+      DMARC_REPORT_EMAIL: ${DMARC_REPORT_EMAIL}
       DKIM_KEY_DIR: /var/lib/rspamd/dkim
     volumes:
       - ./backend/src:/app/src
