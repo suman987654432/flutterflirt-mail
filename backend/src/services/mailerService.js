@@ -8,10 +8,11 @@ export class MailerService {
    * Send mail over SMTP (Postfix submission)
    */
   static async sendMail({ from, to, cc, bcc, subject, html, text, attachments = [] }) {
+    const isSecure = config.smtp.secure === true || parseInt(config.smtp.port, 10) === 465;
     const transportOptions = {
       host: config.smtp.host,
-      port: config.smtp.port,
-      secure: config.smtp.secure,
+      port: parseInt(config.smtp.port, 10),
+      secure: isSecure,
       tls: {
         rejectUnauthorized: false,
       },

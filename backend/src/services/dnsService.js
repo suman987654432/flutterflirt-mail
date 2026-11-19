@@ -71,7 +71,18 @@ export class DnsService {
     try {
       const mxRecords = await dns.resolveMx(domain);
       status.details.mx = mxRecords;
-      status.mx = mxRecords.some(r => r.exchange.toLowerCase().includes('flutterflirt.com') || r.exchange.toLowerCase() === platform.toLowerCase());
+      const cleanPlatform = platform.toLowerCase().replace(/\.$/, '');
+      const domLower = domain.toLowerCase();
+      status.mx = mxRecords.some(r => {
+        const ex = (r.exchange || '').toLowerCase().replace(/\.$/, '');
+        return (
+          ex === cleanPlatform ||
+          ex === `mail.${domLower}` ||
+          ex.endsWith(`.${domLower}`) ||
+          ex.includes('flutterflirt') ||
+          ex.includes('codeaddabot')
+        );
+      });
     } catch (err) {
       status.details.mxError = err.code || err.message;
     }
@@ -81,7 +92,15 @@ export class DnsService {
       const txtRecords = await dns.resolveTxt(domain);
       const flattenedTxt = txtRecords.map(r => r.join(''));
       status.details.txt = flattenedTxt;
-      status.spf = flattenedTxt.some(txt => txt.includes('v=spf1') && (txt.includes('flutterflirt.com') || txt.includes('_spf.')));
+      status.spf = flattenedTxt.some(txt => 
+        txt.includes('v=spf1') && (
+          txt.includes('resend.com') || 
+          txt.includes('flutterflirt') || 
+          txt.includes('codeaddabot') || 
+          txt.includes('_spf.') ||
+          txt.includes('ip4:')
+        )
+      );
     } catch (err) {
       status.details.spfError = err.code || err.message;
     }

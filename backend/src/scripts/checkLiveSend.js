@@ -1,15 +1,16 @@
 import nodemailer from 'nodemailer';
+import { config } from '../config.js';
 
 async function sendTestEmail() {
-  console.log('--- Sending Test Mail as admin@codeaddabot.in ---');
+  console.log('--- Sending Test Mail as admin@codeaddabot.in via Resend SMTP ---');
 
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
+    host: config.smtp.host,
+    port: config.smtp.port,
+    secure: config.smtp.secure,
     auth: {
-      user: 'systemnotify00@gmail.com',
-      pass: 'wyzhqdiksessqzji',
+      user: config.smtp.user,
+      pass: config.smtp.pass,
     },
   });
 

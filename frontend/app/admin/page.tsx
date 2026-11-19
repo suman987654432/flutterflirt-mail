@@ -261,10 +261,10 @@ export default function AdminConsolePage() {
     } catch (e) {
       // Fallback display
       setDnsRecordsList([
-        { type: 'MX', host: '@', value: '10 mail.flutterflirt.com', description: 'Receive email' },
-        { type: 'TXT', host: '@', value: 'v=spf1 include:_spf.flutterflirt.com -all', description: 'SPF' },
+        { type: 'MX', host: '@', value: '10 mail.codeaddabot.in', description: 'Receive email' },
+        { type: 'TXT', host: '@', value: 'v=spf1 include:_spf.mail.codeaddabot.in -all', description: 'SPF' },
         { type: 'TXT', host: 'ff2026._domainkey', value: 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQE...', description: 'DKIM key' },
-        { type: 'TXT', host: '_dmarc', value: 'v=DMARC1; p=none; rua=mailto:dmarc-reports@flutterflirt.com', description: 'DMARC' },
+        { type: 'TXT', host: '_dmarc', value: 'v=DMARC1; p=none; rua=mailto:dmarc-reports@codeaddabot.in', description: 'DMARC' },
       ]);
     }
   };
