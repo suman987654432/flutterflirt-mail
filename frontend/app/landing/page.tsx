@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import * as Accordion from '@radix-ui/react-accordion';
 import {
   Mail,
   ShieldCheck,
@@ -38,7 +39,6 @@ import {
   Headphones,
   Play,
   RotateCcw,
-  Sparkles,
   Activity,
   Calendar,
   CheckSquare,
@@ -81,43 +81,27 @@ const PRICING_DATA = {
   },
 };
 
-/* ─── FAQ List ─── */
+/* ─── FAQ List (Top 5 Focused Questions) ─── */
 const FAQS = [
   {
-    q: 'What is FlutterFlirt Mail?',
-    a: 'FlutterFlirt Mail is a professional business email hosting platform developed by FlutterFlirt Private Limited. It gives businesses dedicated, sovereign email infrastructure with full custom domain support, webmail, and centralized administration.',
+    q: 'What is FlutterFlirt Mail and how is it sovereign?',
+    a: 'FlutterFlirt Mail is a dedicated business email hosting platform developed by FlutterFlirt Private Limited. Unlike public shared mail services, it operates on high-performance NVMe infrastructure with strict tenant isolation, zero ad surveillance, and 100% data ownership.',
   },
   {
-    q: 'Can I use my existing business domain?',
-    a: 'Yes, absolutely. You do not need to transfer your domain registration. Simply add your domain in our Admin Console and add the verified DNS records (MX, SPF, DKIM) at your registrar (Cloudflare, GoDaddy, Namecheap, etc.).',
+    q: 'Can I keep my existing business domain and registrar?',
+    a: 'Yes, absolutely. You do not need to transfer your domain registration. Keep your domain with Cloudflare, GoDaddy, Namecheap, or any provider, and simply copy the verified DNS records (MX, SPF, 2048-bit DKIM, and DMARC).',
   },
   {
-    q: 'Can I access my emails from mobile and desktop?',
-    a: 'Yes. You can access your emails through our high-speed responsive Webmail on any browser, or sync seamlessly with Apple Mail, Microsoft Outlook, Thunderbird, and mobile iOS/Android mail apps.',
+    q: 'Can our team access emails on iPhone, Android, and Outlook?',
+    a: 'Yes. FlutterFlirt Mail provides a blazing-fast responsive browser Webmail interface, as well as standard encrypted IMAP (port 993 SSL/TLS) and SMTP (port 587 STARTTLS) sync for Apple Mail, Outlook, and mobile apps.',
   },
   {
-    q: 'Does FlutterFlirt Mail support IMAP and SMTP?',
-    a: 'Yes. Standard IMAP (port 993 with SSL/TLS) and secure SMTP (port 587 with STARTTLS or 465 SSL) are fully supported out of the box with cryptographic credential enforcement.',
+    q: 'How do I provision and manage employee mailboxes?',
+    a: 'Through the Centralized Admin Console, an administrator can create employee mailboxes with one click, assign storage quotas, configure forwarding aliases (like sales@ or support@), and enforce enterprise password security.',
   },
   {
-    q: 'How do I create email accounts for employees?',
-    a: 'Through the Centralized Admin Console, an administrator can create employee mailboxes with one click, define storage quotas, assign secure passwords, and trigger automated welcome credentials.',
-  },
-  {
-    q: 'What are SPF, DKIM, and DMARC?',
-    a: 'They are email authentication protocols that verify your identity as the sender. SPF validates authorized sending servers, DKIM provides a cryptographic signature verifying the email was not tampered with, and DMARC enforces strict handling of unauthenticated messages to ensure maximum deliverability.',
-  },
-  {
-    q: 'Can I create email aliases?',
-    a: 'Yes. You can configure unlimited forwarding aliases such as sales@yourcompany.com, billing@yourcompany.com, or support@yourcompany.com and route them to one or more primary mailboxes.',
-  },
-  {
-    q: 'How is my email infrastructure hosted?',
-    a: 'FlutterFlirt Mail operates on high-performance self-hosted server architecture with NVMe RAID storage, dedicated compute nodes, and strict tenant isolation. Your communications are completely sovereign.',
-  },
-  {
-    q: 'How can I get started?',
-    a: 'Simply choose your plan above, register your account, and follow our guided 4-step wizard to verify your domain DNS. You can start sending and receiving authenticated business emails in under 10 minutes.',
+    q: 'How quickly can our business get started?',
+    a: 'In under 10 minutes. Simply submit the setup request form below or choose your mailbox plan. Our team will verify your domain DNS records and help you get your business mail live without downtime.',
   },
 ];
 
@@ -126,6 +110,49 @@ export default function LandingPage() {
   const [currency, setCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  // Inbound Lead Form State (dispatches to sumanqaj9876@gmail.com)
+  const [leadForm, setLeadForm] = useState({
+    name: '',
+    email: '',
+    domain: '',
+    phone: '',
+    mailboxCount: 'Starter (1 - 5 Mailboxes)',
+    message: '',
+  });
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
+
+  const handleLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadForm.name.trim() || !leadForm.email.trim()) {
+      setLeadError('Please fill in your name and email.');
+      return;
+    }
+    setLeadLoading(true);
+    setLeadError(null);
+
+    try {
+      const res = await fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadForm),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLeadSubmitted(true);
+      } else {
+        setLeadError(data.error || 'Could not submit request. Please try again.');
+      }
+    } catch (err: any) {
+      console.warn('Lead dispatch note:', err);
+      setLeadSubmitted(true);
+    } finally {
+      setLeadLoading(false);
+    }
+  };
 
   // Hero interactive card states
   const [heroUser, setHeroUser] = useState('sarah');
@@ -228,7 +255,7 @@ export default function LandingPage() {
               Sign In
             </Link>
             <a
-              href="#pricing"
+              href="#get-started"
               className="inline-flex items-center justify-center text-[14px] bg-[#315bdb] text-white font-medium px-4 py-2 rounded-lg shadow-[0_0_12px_rgba(49,91,219,0.3)] hover:bg-[#274bb7] transition-all active:scale-[0.98]"
             >
               Get Started
@@ -273,7 +300,7 @@ export default function LandingPage() {
                 Sign In to Webmail
               </Link>
               <a
-                href="#pricing"
+                href="#get-started"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-center py-2.5 rounded-lg bg-[#315bdb] text-[13px] font-bold text-white shadow-sm"
               >
@@ -361,7 +388,7 @@ export default function LandingPage() {
                   {/* Action CTA Row */}
                   <div className="flex flex-col sm:flex-row items-center gap-3.5 w-full sm:w-auto">
                     <a
-                      href="#pricing"
+                      href="#get-started"
                       className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-[#315bdb] text-white text-[14.5px] font-semibold shadow-[0_4px_16px_rgba(49,91,219,0.28)] hover:bg-[#274bb7] transition-all active:scale-[0.98]"
                     >
                       <span>Get Started Free</span>
@@ -533,7 +560,7 @@ export default function LandingPage() {
 
                     {/* Launch Action Button */}
                     <a
-                      href="#pricing"
+                      href="#get-started"
                       className="w-full py-3 bg-[#315bdb] hover:bg-[#274bb7] text-white rounded-xl text-[14px] font-semibold transition-all active:scale-[0.98] shadow-[0_4px_16px_rgba(49,91,219,0.28)] flex items-center justify-center gap-2 group cursor-pointer"
                     >
                       <span>Create Business Mailbox</span>
@@ -557,7 +584,840 @@ export default function LandingPage() {
         </section>
 
         {/* ═══════════════════════════════════════════════════════════
-            2. TRUST & VALUE PROPOSITION (4 Feature Highlight Cards)
+            2. PRODUCT SHOWCASE (Live Animated Interactive Webmail Client)
+        ═══════════════════════════════════════════════════════════ */}
+        <section id="showcase" className="relative w-full py-24 px-6 lg:px-12 bg-white overflow-hidden">
+          {/* Animated Ambient Glows */}
+          <div className="absolute top-1/4 -left-32 w-[600px] h-[600px] bg-gradient-to-tr from-[#315bdb]/15 via-sky-300/10 to-transparent rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '7s' }} />
+          <div className="absolute bottom-10 -right-32 w-[600px] h-[600px] bg-gradient-to-bl from-purple-500/15 via-[#315bdb]/10 to-transparent rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '9s' }} />
+
+          <div className="max-w-7xl mx-auto space-y-8 relative z-10">
+            <div className="text-center max-w-2xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#e8edff] text-[#0340c2] font-mono text-[11px] mb-2.5 font-bold border border-[#cad6ff]">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#315bdb] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#315bdb]" />
+                </span>
+                <span>INTERACTIVE WEBMAIL</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#181c20] mb-2 tracking-tight">
+                Designed for Your Entire Email Workflow.
+              </h2>
+              <p className="text-[14.5px] text-[#515e80] max-w-md mx-auto leading-relaxed">
+                Test drive the live webmail client. Click any folder, task, or compose message.
+              </p>
+            </div>
+
+            {/* Interactive Desktop Webmail Simulator Container with Glowing Animated Rim */}
+            <div className="relative p-[1.5px] rounded-2xl bg-gradient-to-r from-[#315bdb]/40 via-[#60a5fa]/60 to-[#a855f7]/40 shadow-[0_20px_50px_rgba(49,91,219,0.15)] transition-all">
+              <div className="rounded-2xl bg-white overflow-hidden text-left border border-slate-200">
+                {/* App Titlebar */}
+                <div className="h-12 bg-[#ebeef3] border-b border-[#dfe3e8] px-4 sm:px-6 flex items-center justify-between gap-4 select-none">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-rose-400 inline-block" />
+                    <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
+                    <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
+                    <span className="font-mono text-[11px] text-[#434654] font-medium ml-2 hidden sm:inline">
+                      webmail.flutterflirt.com — {heroUser || 'sarah'}@{heroDomain || 'yourcompany.com'}
+                    </span>
+                  </div>
+
+                  {/* Pulsing Live Simulator Indicator */}
+                  <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10.5px] font-mono font-bold border border-emerald-300 shadow-xs">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
+                    </span>
+                    <span>LIVE SIMULATOR ACTIVE</span>
+                  </div>
+
+                  {/* Right Quick Controls */}
+                  <div className="flex items-center gap-2.5 text-slate-600">
+                    <button
+                      onClick={() => triggerShowcaseToast('✓ All mailboxes and DNS records synced in real time.')}
+                      className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                      title="Refresh Mailbox"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <div className="h-4 w-px bg-slate-300" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-[#315bdb] text-white flex items-center justify-center font-bold text-[11px]">
+                        {heroUser ? heroUser.slice(0, 2).toUpperCase() : 'SJ'}
+                      </div>
+                      <span className="font-semibold text-[12.5px] text-[#181c20] hidden sm:inline">
+                        {heroName || 'Sarah Jenkins'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Webmail Interface Workspace */}
+                <div className="grid grid-cols-12 min-h-[580px] bg-white relative">
+
+                  {/* ── Left Sidebar (Navigation Rail) ── */}
+                  <div className="col-span-12 sm:col-span-4 lg:col-span-3 border-r border-[#dfe3e8] bg-[#f8fafc] p-3 sm:p-4 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      {/* Compose Button */}
+                      <button
+                        onClick={() => setShowcaseComposeOpen(true)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>New Message</span>
+                      </button>
+
+                      {/* Mail Folders (Dynamic Counts & Clickable) */}
+                      <div className="space-y-1">
+                        <div className="px-2 pb-1 text-[10.5px] uppercase tracking-wider font-bold text-slate-400">
+                          Mail Folders
+                        </div>
+
+                        {[
+                          { id: 'inbox' as const, label: 'Inbox', icon: Inbox, badge: '3', defaultEmailId: 1 },
+                          { id: 'starred' as const, label: 'Starred', icon: Star, badge: '2', defaultEmailId: 1 },
+                          { id: 'sent' as const, label: 'Sent Mail', icon: Send, badge: '1', defaultEmailId: 4 },
+                          { id: 'drafts' as const, label: 'Drafts', icon: FileText, badge: '1', defaultEmailId: 5 },
+                          { id: 'trash' as const, label: 'Trash', icon: Trash2, badge: '1', defaultEmailId: 6 },
+                        ].map((folder) => {
+                          const isActive = showcaseTab === 'inbox' && showcaseEmailFolder === folder.id;
+                          return (
+                            <button
+                              key={folder.id}
+                              onClick={() => {
+                                setShowcaseTab('inbox');
+                                setShowcaseEmailFolder(folder.id);
+                                setSelectedEmailId(folder.defaultEmailId);
+                              }}
+                              className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${isActive
+                                ? 'bg-[#cad6ff]/50 text-[#0340c2] font-semibold'
+                                : 'text-slate-700 hover:bg-slate-200/60'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <folder.icon className={`w-4 h-4 ${isActive ? 'text-[#315bdb]' : 'text-slate-500'}`} />
+                                <span>{folder.label}</span>
+                              </div>
+                              {folder.badge && (
+                                <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${isActive ? 'bg-[#315bdb] text-white' : 'bg-slate-200 text-slate-700'
+                                  }`}>
+                                  {folder.badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Integrated Apps */}
+                      <div className="space-y-1 pt-2 border-t border-slate-200">
+                        <div className="px-2 pb-1 text-[10.5px] uppercase tracking-wider font-bold text-slate-400">
+                          Workspace Apps
+                        </div>
+
+                        <button
+                          onClick={() => setShowcaseTab('todo')}
+                          className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${showcaseTab === 'todo'
+                            ? 'bg-emerald-100 text-emerald-900 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <CheckSquare className={`w-4 h-4 ${showcaseTab === 'todo' ? 'text-emerald-700' : 'text-slate-500'}`} />
+                            <span>To-Do &amp; Tasks</span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-600 text-white">
+                            {showcaseTasks.filter(t => !t.completed).length}
+                          </span>
+                        </button>
+
+                        {/* Calendar - Coming Soon */}
+                        <button
+                          onClick={() => setShowcaseTab('calendar')}
+                          className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${showcaseTab === 'calendar'
+                            ? 'bg-slate-200 text-[#181c20] font-semibold'
+                            : 'text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Calendar className={`w-4 h-4 ${showcaseTab === 'calendar' ? 'text-[#315bdb]' : 'text-slate-500'}`} />
+                            <span>Calendar</span>
+                          </div>
+                          <span className="text-[9.5px] bg-slate-200/80 text-slate-700 font-semibold px-2 py-0.5 rounded-full border border-slate-300">
+                            Coming Soon
+                          </span>
+                        </button>
+
+                        {/* Team Directory - Coming Soon */}
+                        <button
+                          onClick={() => setShowcaseTab('contacts')}
+                          className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${showcaseTab === 'contacts'
+                            ? 'bg-slate-200 text-[#181c20] font-semibold'
+                            : 'text-slate-700 hover:bg-slate-200/60'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Users className={`w-4 h-4 ${showcaseTab === 'contacts' ? 'text-[#315bdb]' : 'text-slate-500'}`} />
+                            <span>Team Directory</span>
+                          </div>
+                          <span className="text-[9.5px] bg-slate-200/80 text-slate-700 font-semibold px-2 py-0.5 rounded-full border border-slate-300">
+                            Coming Soon
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Storage Indicator */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1.5 mt-4">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                        <span>Encrypted Storage</span>
+                        <span className="text-[#315bdb]">4.2 GB / 50 GB</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-[#315bdb] h-full w-[8%]" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Center & Right Main Workspace ── */}
+                  <div className="col-span-12 sm:col-span-8 lg:col-span-9 flex flex-col bg-white">
+
+                    {/* ── VIEW 1: EMAIL FOLDER VIEW & READING PANE ── */}
+                    {showcaseTab === 'inbox' && (() => {
+                      // Filter emails dynamically based on folder clicked
+                      const displayedEmails = [
+                        {
+                          id: 1,
+                          folder: 'inbox',
+                          starred: true,
+                          from: 'Sarah Jenkins',
+                          email: 'sarah@yourcompany.com',
+                          to: 'admin@yourcompany.com',
+                          subject: 'Q3 Enterprise Infrastructure & Compliance Signoff',
+                          snippet: 'Hi team, I reviewed our FlutterFlirt Mail cluster. 2048-bit DKIM keys & SPF records are fully validated...',
+                          time: '10:42 AM',
+                          security: { spf: '✓ SPF PASS', dkim: '✓ DKIM-2048 PASS', dmarc: '✓ DMARC PASS' },
+                          attachment: { name: 'Security_Compliance_Audit_2026.pdf', size: '2.4 MB' },
+                          body: (
+                            <div className="space-y-3.5">
+                              <p>Hi Team,</p>
+                              <p>
+                                I am pleased to report that our FlutterFlirt Mail sovereign cluster deployment has passed all internal compliance tests. Our deliverability score is at <strong className="text-slate-900">99.9%</strong>, and all outbound messages to Gmail and Microsoft 365 are landing directly in recipient primary inboxes.
+                              </p>
+                              <p>
+                                The automatic 2048-bit DKIM signature and strict DMARC enforcement have completely eliminated unauthorized spoofing attempts against our brand domain.
+                              </p>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 2,
+                          folder: 'inbox',
+                          starred: false,
+                          from: 'Cloudflare DNS Service',
+                          email: 'notifications@cloudflare.com',
+                          to: 'admin@yourcompany.com',
+                          subject: 'DNS Records Successfully Propagated: MX, SPF & DKIM Active',
+                          snippet: 'Your custom domain DNS configuration has finished global propagation across all edge clusters...',
+                          time: 'Yesterday',
+                          security: { spf: '✓ SPF PASS', dkim: '✓ DKIM-2048 PASS', dmarc: '✓ DMARC PASS' },
+                          body: (
+                            <div className="space-y-3.5">
+                              <p>Hello Administrator,</p>
+                              <p>Your custom domain DNS configuration has finished global propagation across all edge clusters:</p>
+                              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[12px] space-y-1.5 text-slate-800">
+                                <div>• <strong>MX Record:</strong> mail.flutterflirt.com (Priority 10) — ACTIVE</div>
+                                <div>• <strong>SPF Record:</strong> v=spf1 include:_spf.flutterflirt.com ~all — VERIFIED</div>
+                                <div>• <strong>DKIM Selector:</strong> ff2026._domainkey (2048-bit RSA) — VERIFIED</div>
+                                <div>• <strong>DMARC Policy:</strong> v=DMARC1; p=reject; pct=100 — STRICT ACTIVE</div>
+                              </div>
+                              <p className="text-emerald-700 font-semibold">Your sovereign mailboxes are ready for live dispatch.</p>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 3,
+                          folder: 'inbox',
+                          starred: true,
+                          from: 'Stripe Billing System',
+                          email: 'invoices@stripe.com',
+                          to: 'admin@yourcompany.com',
+                          subject: 'Payout Succeeded: $14,250.00 USD to Operating Account',
+                          snippet: 'A scheduled payout of $14,250.00 USD has been initiated to your linked corporate bank account...',
+                          time: 'Nov 17',
+                          security: { spf: '✓ SPF PASS', dkim: '✓ DKIM-2048 PASS', dmarc: '✓ DMARC PASS' },
+                          body: (
+                            <div className="space-y-3.5">
+                              <p>Hello Finance Team,</p>
+                              <p>A scheduled payout of <strong className="text-slate-900">$14,250.00 USD</strong> has been completed to your corporate bank account (*4910).</p>
+                              <p className="text-slate-500 text-xs font-mono">Reference ID: po_1OaB52Lkd82x982Lms</p>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 4,
+                          folder: 'sent',
+                          starred: false,
+                          from: 'You (admin@yourcompany.com)',
+                          email: 'admin@yourcompany.com',
+                          to: 'partners@venturecapital.io',
+                          subject: 'Enterprise Domain Migration & Compliance Signoff Notice',
+                          snippet: 'Hi Partners, We have finalized our transition to FlutterFlirt Mail dedicated sovereign infrastructure...',
+                          time: 'Nov 16',
+                          security: { spf: '✓ OUTBOUND SIGNED', dkim: '✓ 2048-BIT RSA SEAL', dmarc: '✓ ENFORCED' },
+                          attachment: { name: 'Signed_Migration_Notice.pdf', size: '1.1 MB' },
+                          body: (
+                            <div className="space-y-3.5">
+                              <p>Hi Partners,</p>
+                              <p>
+                                We have officially finalized our corporate email transition to FlutterFlirt Mail's dedicated sovereign infrastructure.
+                              </p>
+                              <p>
+                                All outbound communications from our team are now cryptographically signed with 2048-bit RSA keys and protected by strict DMARC rejection policies. Please whitelist our primary domain for unhindered direct dispatch.
+                              </p>
+                              <p className="text-slate-600 font-medium">Warm regards,<br />Leadership Team</p>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 5,
+                          folder: 'drafts',
+                          starred: false,
+                          from: 'Draft (You)',
+                          email: 'admin@yourcompany.com',
+                          to: 'all-team@yourcompany.com',
+                          subject: '[Draft] Company Guidelines on Sovereign Mail & Zero Ad Surveillance',
+                          snippet: 'Team, please review our new internal guidelines on corporate communications privacy and zero third-party AI training...',
+                          time: 'Draft Saved',
+                          body: (
+                            <div className="space-y-3.5">
+                              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-mono">
+                                📝 DRAFT NOT YET DISPATCHED • Click &quot;Resume in Compose&quot; to edit and send.
+                              </div>
+                              <p>Team,</p>
+                              <p>
+                                Please review the attached briefing regarding our new internal email protocols. Unlike generic big-tech providers, our mailbox data is hosted on sovereign hardware with zero algorithmic scanning and zero ad tracking.
+                              </p>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 6,
+                          folder: 'trash',
+                          starred: false,
+                          from: 'Outdated Vendor Newsletter',
+                          email: 'promo@legacywebmail.com',
+                          to: 'admin@yourcompany.com',
+                          subject: '[Expired] Legacy Webmail Subscription Renewal Notice',
+                          snippet: 'Your legacy webmail service renewal notice. This item was discarded during domain migration...',
+                          time: 'Nov 10',
+                          body: (
+                            <div className="space-y-3.5">
+                              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-mono">
+                                🗑️ This message is in Trash and will be permanently purged in 18 days.
+                              </div>
+                              <p className="text-slate-500">Notice from obsolete legacy webmail provider prior to migration.</p>
+                            </div>
+                          ),
+                        },
+                      ].filter((item) => {
+                        if (showcaseEmailFolder === 'starred') return item.starred;
+                        return item.folder === showcaseEmailFolder;
+                      });
+
+                      // Current active email to read
+                      const activeEmail =
+                        displayedEmails.find((e) => e.id === selectedEmailId) ||
+                        displayedEmails[0];
+
+                      return (
+                        <div className="grid grid-cols-1 lg:grid-cols-12 h-full min-h-[580px]">
+                          {/* Email List Column */}
+                          <div className="lg:col-span-5 border-r border-[#dfe3e8] flex flex-col h-full bg-slate-50/40">
+                            {/* List Top Bar */}
+                            <div className="p-3.5 border-b border-[#dfe3e8] flex items-center justify-between bg-white text-[12.5px] font-semibold text-slate-700">
+                              <span className="capitalize font-bold text-[#181c20]">
+                                {showcaseEmailFolder === 'sent'
+                                  ? 'Sent Mail'
+                                  : showcaseEmailFolder}{' '}
+                                ({displayedEmails.length} {displayedEmails.length === 1 ? 'item' : 'items'})
+                              </span>
+                              <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                TLS 1.3 Active
+                              </span>
+                            </div>
+
+                            {/* Dynamic Email Items List */}
+                            <div className="divide-y divide-slate-100 flex-1 overflow-y-auto">
+                              {displayedEmails.map((item) => (
+                                <div
+                                  key={item.id}
+                                  onClick={() => setSelectedEmailId(item.id)}
+                                  className={`p-3.5 cursor-pointer transition-all duration-150 ${activeEmail?.id === item.id
+                                    ? 'bg-[#cad6ff]/40 border-l-4 border-l-[#315bdb] shadow-xs'
+                                    : 'hover:bg-slate-100/70 hover:translate-x-0.5'
+                                    }`}
+                                >
+                                  <div className="flex items-center justify-between text-[12.5px] mb-1">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      {item.starred && (
+                                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                                      )}
+                                      <span
+                                        className={`font-semibold truncate ${activeEmail?.id === item.id
+                                          ? 'text-[#0340c2]'
+                                          : 'text-slate-900'
+                                          }`}
+                                      >
+                                        {item.from}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-slate-400 font-mono shrink-0 ml-2">
+                                      {item.time}
+                                    </span>
+                                  </div>
+                                  <div className="text-[13px] font-medium text-slate-800 truncate mb-1">
+                                    {item.subject}
+                                  </div>
+                                  <div className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed">
+                                    {item.snippet}
+                                  </div>
+                                </div>
+                              ))}
+
+                              {displayedEmails.length === 0 && (
+                                <div className="p-8 text-center text-slate-400 text-sm">
+                                  No messages in {showcaseEmailFolder}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Reading Pane Column */}
+                          <div className="lg:col-span-7 p-5 sm:p-6 flex flex-col justify-between bg-white h-full">
+                            {activeEmail ? (
+                              <div className="space-y-5 animate-in fade-in duration-200">
+                                {/* Email Headers */}
+                                <div className="pb-4 border-b border-slate-200 space-y-3">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <h3 className="text-[17px] font-bold text-[#181c20] leading-snug">
+                                      {activeEmail.subject}
+                                    </h3>
+                                    {activeEmail.security && (
+                                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10.5px] font-mono font-bold border border-emerald-200">
+                                          {activeEmail.security.spf}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded bg-blue-100 text-[#003ab3] text-[10.5px] font-mono font-bold border border-blue-200">
+                                          {activeEmail.security.dkim}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between text-[13px]">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-[#315bdb] text-white flex items-center justify-center font-bold text-[12px]">
+                                        {activeEmail.from.slice(0, 2).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <div className="font-semibold text-slate-900">
+                                          {activeEmail.from}{' '}
+                                          <span className="font-normal text-slate-500 text-xs">
+                                            &lt;{activeEmail.email}&gt;
+                                          </span>
+                                        </div>
+                                        <div className="text-slate-500 text-[11.5px]">
+                                          To: {activeEmail.to}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <span className="text-slate-400 text-[11.5px] font-mono">
+                                      {activeEmail.time}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Email Body */}
+                                <div className="text-[14px] text-slate-700 leading-relaxed">
+                                  {activeEmail.body}
+
+                                  {/* Optional Attachment Pill */}
+                                  {activeEmail.attachment && (
+                                    <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-lg bg-blue-100 text-[#315bdb] flex items-center justify-center font-bold text-xs">
+                                          PDF
+                                        </div>
+                                        <div>
+                                          <div className="text-[13px] font-semibold text-slate-900">
+                                            {activeEmail.attachment.name}
+                                          </div>
+                                          <div className="text-[11.5px] text-slate-500">
+                                            {activeEmail.attachment.size} • Cryptographically Signed
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() =>
+                                          triggerShowcaseToast(
+                                            `✓ Downloaded ${activeEmail.attachment?.name}`
+                                          )
+                                        }
+                                        className="px-3 py-1.5 rounded-lg text-[12px] font-semibold text-[#315bdb] hover:bg-blue-50 border border-blue-200 transition-colors cursor-pointer"
+                                      >
+                                        Download
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Action Buttons Depending on Folder */}
+                                <div className="pt-4 flex items-center gap-3 border-t border-slate-100">
+                                  {showcaseEmailFolder === 'drafts' ? (
+                                    <button
+                                      onClick={() => {
+                                        setShowcaseComposeOpen(true);
+                                        setShowcaseComposeTo(activeEmail.to);
+                                        setShowcaseComposeSubject(activeEmail.subject.replace('[Draft] ', ''));
+                                      }}
+                                      className="px-4 py-2 rounded-lg bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>Resume in Compose</span>
+                                    </button>
+                                  ) : showcaseEmailFolder === 'trash' ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          triggerShowcaseToast('✓ Message restored to Inbox.');
+                                          setShowcaseEmailFolder('inbox');
+                                          setSelectedEmailId(1);
+                                        }}
+                                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        <span>Restore to Inbox</span>
+                                      </button>
+                                      <button
+                                        onClick={() => triggerShowcaseToast('✓ Message deleted permanently.')}
+                                        className="px-4 py-2 rounded-lg border border-rose-200 text-rose-700 text-[13px] font-semibold hover:bg-rose-50 transition-colors cursor-pointer"
+                                      >
+                                        Delete Permanently
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setShowcaseComposeOpen(true);
+                                          setShowcaseComposeTo(activeEmail.email);
+                                          setShowcaseComposeSubject(`Re: ${activeEmail.subject}`);
+                                        }}
+                                        className="px-4 py-2 rounded-lg bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                        <span>Reply</span>
+                                      </button>
+                                      <button
+                                        onClick={() => triggerShowcaseToast('✓ Email forwarded.')}
+                                        className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-[13px] font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
+                                      >
+                                        Forward
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-8 text-center text-slate-400">
+                                Select a message from the list to read.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── VIEW 2: INTERACTIVE TO-DO & TASKS ── */}
+                    {showcaseTab === 'todo' && (
+                      <div className="p-6 space-y-6 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+                          <div>
+                            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 uppercase tracking-wider font-mono">
+                              <CheckSquare className="w-3.5 h-3.5" /> Functional Task Manager
+                            </div>
+                            <h3 className="text-[20px] font-bold text-[#181c20] mt-0.5">
+                              Workspace To-Do &amp; Action Items
+                            </h3>
+                          </div>
+                          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-mono text-[12px] font-bold">
+                            {showcaseTasks.filter(t => !t.completed).length} Pending
+                          </span>
+                        </div>
+
+                        {/* Add New Task Form */}
+                        <form onSubmit={handleAddShowcaseTask} className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newTaskInput}
+                            onChange={(e) => setNewTaskInput(e.target.value)}
+                            placeholder="Type a new task (e.g. Set up sales@ alias, invite team member)..."
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-[14px] text-slate-800 focus:outline-none focus:border-[#315bdb] focus:ring-2 focus:ring-[#315bdb]/15"
+                          />
+                          <button
+                            type="submit"
+                            className="px-5 py-2.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold transition-all active:scale-[0.98] cursor-pointer"
+                          >
+                            Add Task
+                          </button>
+                        </form>
+
+                        {/* Tasks Checklist */}
+                        <div className="space-y-2.5">
+                          {showcaseTasks.map((task) => (
+                            <div
+                              key={task.id}
+                              onClick={() => handleToggleTask(task.id)}
+                              className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${task.completed
+                                ? 'bg-slate-50 border-slate-200 opacity-60'
+                                : 'bg-white border-slate-200/90 hover:border-[#315bdb] hover:shadow-xs hover:translate-x-0.5'
+                                }`}
+                            >
+                              <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                                <div
+                                  className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 ${task.completed
+                                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                                    : 'border-slate-300 bg-white hover:border-[#315bdb]'
+                                    }`}
+                                >
+                                  {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                                </div>
+                                <span className={`text-[14px] font-medium truncate ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'
+                                  }`}>
+                                  {task.title}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold ${task.priority === 'high'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : task.priority === 'medium'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                  }`}>
+                                  {task.priority.toUpperCase()}
+                                </span>
+                                <span className="text-[11.5px] font-mono text-slate-500 hidden sm:inline">
+                                  {task.dueDate}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── VIEW 3: CALENDAR (COMING SOON) ── */}
+                    {showcaseTab === 'calendar' && (
+                      <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 min-h-[500px]">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 text-[#315bdb] flex items-center justify-center shadow-xs">
+                          <Calendar className="w-7 h-7" />
+                        </div>
+
+                        <div className="max-w-md space-y-1.5">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10.5px] font-mono font-semibold border border-slate-200">
+                            <Clock className="w-3 h-3 text-slate-500" />
+                            <span>COMING SOON</span>
+                          </div>
+                          <h3 className="text-xl font-bold text-[#181c20]">
+                            Integrated Team Calendar
+                          </h3>
+                          <p className="text-[13.5px] text-slate-500 leading-relaxed">
+                            Smart meeting scheduling with Google &amp; Outlook 2-way sync, time-zone booking links, and CalDAV standard protocol integration.
+                          </p>
+                        </div>
+
+                        {/* Feature Preview Checklist */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left max-w-md w-full bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>Multi-Calendar Team Overlay</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>Google &amp; Outlook 2-Way Sync</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>1-Click Video Meeting Links</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>CalDAV Standard Protocol</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => triggerShowcaseToast('✓ Added to Calendar Early Access list! We will notify you on launch.')}
+                          className="px-5 py-2.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13px] font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                        >
+                          Notify Me on Release
+                        </button>
+                      </div>
+                    )}
+
+                    {/* ── VIEW 4: TEAM DIRECTORY (COMING SOON) ── */}
+                    {showcaseTab === 'contacts' && (
+                      <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 min-h-[500px]">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 text-[#315bdb] flex items-center justify-center shadow-xs">
+                          <Users className="w-7 h-7" />
+                        </div>
+
+                        <div className="max-w-md space-y-1.5">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10.5px] font-mono font-semibold border border-slate-200">
+                            <Users className="w-3 h-3 text-slate-500" />
+                            <span>COMING SOON</span>
+                          </div>
+                          <h3 className="text-xl font-bold text-[#181c20]">
+                            Centralized Team Directory
+                          </h3>
+                          <p className="text-[13.5px] text-slate-500 leading-relaxed">
+                            Global Address List (GAL) auto-discovery, LDAP/CardDAV synchronization, and shared departmental distribution groups.
+                          </p>
+                        </div>
+
+                        {/* Feature Preview Checklist */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left max-w-md w-full bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>Global Address List (GAL)</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>LDAP &amp; CardDAV Sync</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>Shared Team Aliases &amp; Routing</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-slate-700">
+                            <Check className="w-3.5 h-3.5 text-[#315bdb] shrink-0" strokeWidth={3} />
+                            <span>Instant Org Chart Mapping</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => triggerShowcaseToast('✓ Added to Team Directory Early Access list! We will notify you on launch.')}
+                          className="px-5 py-2.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13px] font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                        >
+                          Notify Me on Release
+                        </button>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+
+                {/* ── LIVE INFRASTRUCTURE TELEMETRY STATUS BAR ── */}
+                <div className="h-9 bg-[#0c1a39] px-4 sm:px-6 flex items-center justify-between text-[11px] font-mono text-slate-300 border-t border-slate-800">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      TLS 1.3 Strict
+                    </span>
+                    <span className="hidden sm:inline text-slate-500">•</span>
+                    <span className="hidden sm:inline text-blue-300">2048-Bit RSA DKIM Active</span>
+                    <span className="hidden md:inline text-slate-500">•</span>
+                    <span className="hidden md:inline text-emerald-400">99.9% Deliverability SLA</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Lock className="w-3 h-3 text-[#315bdb]" />
+                    <span>Zero Ad Surveillance</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── FLOATING RICH COMPOSE MODAL OVERLAY ── */}
+              {showcaseComposeOpen && (
+                <div className="absolute bottom-4 right-4 sm:right-6 w-[94%] sm:w-[480px] bg-white rounded-2xl shadow-2xl border-2 border-[#315bdb] overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-6 duration-200">
+                  {/* Compose Header */}
+                  <div className="h-10 bg-[#315bdb] px-4 flex items-center justify-between text-white select-none">
+                    <span className="text-[13px] font-bold flex items-center gap-2">
+                      <Mail className="w-4 h-4" /> New Message
+                    </span>
+                    <button
+                      onClick={() => setShowcaseComposeOpen(false)}
+                      className="p-1 hover:bg-white/20 rounded-md transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Compose Form */}
+                  <div className="p-4 space-y-2.5 text-[13.5px]">
+                    <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
+                      <span className="text-slate-400 font-medium w-12">To:</span>
+                      <input
+                        type="text"
+                        value={showcaseComposeTo}
+                        onChange={(e) => setShowcaseComposeTo(e.target.value)}
+                        className="flex-1 font-mono text-slate-900 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
+                      <span className="text-slate-400 font-medium w-12">Subject:</span>
+                      <input
+                        type="text"
+                        value={showcaseComposeSubject}
+                        onChange={(e) => setShowcaseComposeSubject(e.target.value)}
+                        className="flex-1 font-semibold text-slate-900 focus:outline-none"
+                      />
+                    </div>
+                    <textarea
+                      rows={5}
+                      value={showcaseComposeBody}
+                      onChange={(e) => setShowcaseComposeBody(e.target.value)}
+                      className="w-full text-slate-700 focus:outline-none resize-none pt-1"
+                    />
+
+                    {/* Compose Footer Toolbar */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <Bold className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
+                        <Italic className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
+                        <LinkIcon className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
+                        <Paperclip className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setShowcaseComposeOpen(false);
+                          triggerShowcaseToast(`✓ Email sent successfully to ${showcaseComposeTo} with 2048-bit DKIM signature!`);
+                        }}
+                        className="px-5 py-2 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white font-semibold text-[13px] flex items-center gap-1.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                      >
+                        <span>Send Message</span>
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Toast Feedback Notice */}
+              {showcaseToast && (
+                <div className="absolute top-14 right-6 bg-[#0c1a39] text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-[13px] font-semibold flex items-center gap-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{showcaseToast}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════
+            3. TRUST & VALUE PROPOSITION (4 Feature Highlight Cards)
         ═══════════════════════════════════════════════════════════ */}
         <section className="w-full py-20 px-6 lg:px-12 bg-[#f1f4f9]">
           <div className="max-w-7xl mx-auto">
@@ -622,7 +1482,7 @@ export default function LandingPage() {
         </section>
 
         {/* ═══════════════════════════════════════════════════════════
-            3. PROBLEM & SOLUTION SECTION
+            4. PROBLEM & SOLUTION SECTION
         ═══════════════════════════════════════════════════════════ */}
         <section className="w-full py-20 px-6 lg:px-12 bg-white">
           <div className="max-w-7xl mx-auto">
@@ -852,853 +1712,6 @@ export default function LandingPage() {
                   <span>Bounce Rate: 0.02%</span>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════════════════════════════════════════
-            5. PRODUCT SHOWCASE (Live Animated Interactive Webmail Client)
-        ═══════════════════════════════════════════════════════════ */}
-        <section id="showcase" className="relative w-full py-24 px-6 lg:px-12 bg-white overflow-hidden">
-          {/* Animated Ambient Glows */}
-          <div className="absolute top-1/4 -left-32 w-[600px] h-[600px] bg-gradient-to-tr from-[#315bdb]/15 via-sky-300/10 to-transparent rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '7s' }} />
-          <div className="absolute bottom-10 -right-32 w-[600px] h-[600px] bg-gradient-to-bl from-purple-500/15 via-[#315bdb]/10 to-transparent rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '9s' }} />
-
-          <div className="max-w-7xl mx-auto space-y-10 relative z-10">
-            <div className="text-center max-w-3xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#cad6ff]/50 text-[#0c1a39] font-mono text-[11px] mb-3 font-semibold shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-[#315bdb] animate-spin" style={{ animationDuration: '8s' }} />
-                <span>TEST DRIVE FLUTTERFLIRT MAIL • 100% INTERACTIVE SIMULATOR</span>
-              </div>
-              <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-bold text-[#181c20] mb-3 tracking-tight">
-                Designed for Your Entire Email Workflow.
-              </h2>
-              <p className="text-[16px] text-[#434654] leading-relaxed">
-                Experience our real Webmail interface right here. Click on <strong>Inbox</strong>, <strong>Starred</strong>, <strong>Sent Mail</strong>, <strong>Drafts</strong>, <strong>Trash</strong>, or <strong>To-Do &amp; Tasks</strong> in the sidebar to test drive live interactions.
-              </p>
-            </div>
-
-            {/* Interactive Desktop Webmail Simulator Container with Glowing Animated Rim */}
-            <div className="relative p-[1.5px] rounded-2xl bg-gradient-to-r from-[#315bdb]/40 via-[#60a5fa]/60 to-[#a855f7]/40 shadow-[0_20px_50px_rgba(49,91,219,0.15)] transition-all">
-              <div className="rounded-2xl bg-white overflow-hidden text-left border border-slate-200">
-                {/* App Titlebar */}
-                <div className="h-12 bg-[#ebeef3] border-b border-[#dfe3e8] px-4 sm:px-6 flex items-center justify-between gap-4 select-none">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-rose-400 inline-block" />
-                    <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-                    <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
-                    <span className="font-mono text-[11px] text-[#434654] font-medium ml-2 hidden sm:inline">
-                      webmail.flutterflirt.com — {heroUser || 'sarah'}@{heroDomain || 'yourcompany.com'}
-                    </span>
-                  </div>
-
-                  {/* Pulsing Live Simulator Indicator */}
-                  <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10.5px] font-mono font-bold border border-emerald-300 shadow-xs">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
-                    </span>
-                    <span>LIVE SIMULATOR ACTIVE</span>
-                  </div>
-
-                  {/* Right Quick Controls */}
-                  <div className="flex items-center gap-2.5 text-slate-600">
-                    <button
-                      onClick={() => triggerShowcaseToast('✓ All mailboxes and DNS records synced in real time.')}
-                      className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                      title="Refresh Mailbox"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                    <div className="h-4 w-px bg-slate-300" />
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-[#315bdb] text-white flex items-center justify-center font-bold text-[11px]">
-                        {heroUser ? heroUser.slice(0, 2).toUpperCase() : 'SJ'}
-                      </div>
-                      <span className="font-semibold text-[12.5px] text-[#181c20] hidden sm:inline">
-                        {heroName || 'Sarah Jenkins'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Webmail Interface Workspace */}
-                <div className="grid grid-cols-12 min-h-[580px] bg-white relative">
-
-                  {/* ── Left Sidebar (Navigation Rail) ── */}
-                  <div className="col-span-12 sm:col-span-4 lg:col-span-3 border-r border-[#dfe3e8] bg-[#f8fafc] p-3 sm:p-4 flex flex-col justify-between">
-                    <div className="space-y-4">
-                      {/* Compose Button */}
-                      <button
-                        onClick={() => setShowcaseComposeOpen(true)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>New Message</span>
-                      </button>
-
-                      {/* Mail Folders (Dynamic Counts & Clickable) */}
-                      <div className="space-y-1">
-                        <div className="px-2 pb-1 text-[10.5px] uppercase tracking-wider font-bold text-slate-400">
-                          Mail Folders
-                        </div>
-
-                        {[
-                          { id: 'inbox' as const, label: 'Inbox', icon: Inbox, badge: '3', defaultEmailId: 1 },
-                          { id: 'starred' as const, label: 'Starred', icon: Star, badge: '2', defaultEmailId: 1 },
-                          { id: 'sent' as const, label: 'Sent Mail', icon: Send, badge: '1', defaultEmailId: 4 },
-                          { id: 'drafts' as const, label: 'Drafts', icon: FileText, badge: '1', defaultEmailId: 5 },
-                          { id: 'trash' as const, label: 'Trash', icon: Trash2, badge: '1', defaultEmailId: 6 },
-                        ].map((folder) => {
-                          const isActive = showcaseTab === 'inbox' && showcaseEmailFolder === folder.id;
-                          return (
-                            <button
-                              key={folder.id}
-                              onClick={() => {
-                                setShowcaseTab('inbox');
-                                setShowcaseEmailFolder(folder.id);
-                                setSelectedEmailId(folder.defaultEmailId);
-                              }}
-                              className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                                isActive
-                                  ? 'bg-[#cad6ff]/50 text-[#0340c2] font-semibold'
-                                  : 'text-slate-700 hover:bg-slate-200/60'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <folder.icon className={`w-4 h-4 ${isActive ? 'text-[#315bdb]' : 'text-slate-500'}`} />
-                                <span>{folder.label}</span>
-                              </div>
-                              {folder.badge && (
-                                <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
-                                  isActive ? 'bg-[#315bdb] text-white' : 'bg-slate-200 text-slate-700'
-                                }`}>
-                                  {folder.badge}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Integrated Apps */}
-                      <div className="space-y-1 pt-2 border-t border-slate-200">
-                        <div className="px-2 pb-1 text-[10.5px] uppercase tracking-wider font-bold text-slate-400">
-                          Workspace Apps
-                        </div>
-
-                        <button
-                          onClick={() => setShowcaseTab('todo')}
-                          className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                            showcaseTab === 'todo'
-                              ? 'bg-emerald-100 text-emerald-900 font-semibold'
-                              : 'text-slate-700 hover:bg-slate-200/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <CheckSquare className={`w-4 h-4 ${showcaseTab === 'todo' ? 'text-emerald-700' : 'text-slate-500'}`} />
-                            <span>To-Do &amp; Tasks</span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-600 text-white">
-                            {showcaseTasks.filter(t => !t.completed).length}
-                          </span>
-                        </button>
-
-                        {/* Calendar - Coming Soon */}
-                        <button
-                          onClick={() => setShowcaseTab('calendar')}
-                          className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                            showcaseTab === 'calendar'
-                              ? 'bg-amber-100 text-amber-900 font-semibold'
-                              : 'text-slate-700 hover:bg-slate-200/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Calendar className={`w-4 h-4 ${showcaseTab === 'calendar' ? 'text-amber-700' : 'text-slate-500'}`} />
-                            <span>Calendar</span>
-                          </div>
-                          <span className="text-[9.5px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full border border-amber-300">
-                            Coming Soon
-                          </span>
-                        </button>
-
-                        {/* Team Directory - Coming Soon */}
-                        <button
-                          onClick={() => setShowcaseTab('contacts')}
-                          className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                            showcaseTab === 'contacts'
-                              ? 'bg-purple-100 text-purple-900 font-semibold'
-                              : 'text-slate-700 hover:bg-slate-200/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Users className={`w-4 h-4 ${showcaseTab === 'contacts' ? 'text-purple-700' : 'text-slate-500'}`} />
-                            <span>Team Directory</span>
-                          </div>
-                          <span className="text-[9.5px] bg-purple-100 text-purple-800 font-semibold px-2 py-0.5 rounded-full border border-purple-300">
-                            Coming Soon
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Storage Indicator */}
-                    <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1.5 mt-4">
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
-                        <span>Encrypted Storage</span>
-                        <span className="text-[#315bdb]">4.2 GB / 50 GB</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-[#315bdb] h-full w-[8%]" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── Center & Right Main Workspace ── */}
-                  <div className="col-span-12 sm:col-span-8 lg:col-span-9 flex flex-col bg-white">
-
-                    {/* ── VIEW 1: EMAIL FOLDER VIEW & READING PANE ── */}
-                    {showcaseTab === 'inbox' && (() => {
-                      // Filter emails dynamically based on folder clicked
-                      const displayedEmails = [
-                        {
-                          id: 1,
-                          folder: 'inbox',
-                          starred: true,
-                          from: 'Sarah Jenkins',
-                          email: 'sarah@yourcompany.com',
-                          to: 'admin@yourcompany.com',
-                          subject: 'Q3 Enterprise Infrastructure & Compliance Signoff',
-                          snippet: 'Hi team, I reviewed our FlutterFlirt Mail cluster. 2048-bit DKIM keys & SPF records are fully validated...',
-                          time: '10:42 AM',
-                          security: { spf: '✓ SPF PASS', dkim: '✓ DKIM-2048 PASS', dmarc: '✓ DMARC PASS' },
-                          attachment: { name: 'Security_Compliance_Audit_2026.pdf', size: '2.4 MB' },
-                          body: (
-                            <div className="space-y-3.5">
-                              <p>Hi Team,</p>
-                              <p>
-                                I am pleased to report that our FlutterFlirt Mail sovereign cluster deployment has passed all internal compliance tests. Our deliverability score is at <strong className="text-slate-900">99.9%</strong>, and all outbound messages to Gmail and Microsoft 365 are landing directly in recipient primary inboxes.
-                              </p>
-                              <p>
-                                The automatic 2048-bit DKIM signature and strict DMARC enforcement have completely eliminated unauthorized spoofing attempts against our brand domain.
-                              </p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 2,
-                          folder: 'inbox',
-                          starred: false,
-                          from: 'Cloudflare DNS Service',
-                          email: 'notifications@cloudflare.com',
-                          to: 'admin@yourcompany.com',
-                          subject: 'DNS Records Successfully Propagated: MX, SPF & DKIM Active',
-                          snippet: 'Your custom domain DNS configuration has finished global propagation across all edge clusters...',
-                          time: 'Yesterday',
-                          security: { spf: '✓ SPF PASS', dkim: '✓ DKIM-2048 PASS', dmarc: '✓ DMARC PASS' },
-                          body: (
-                            <div className="space-y-3.5">
-                              <p>Hello Administrator,</p>
-                              <p>Your custom domain DNS configuration has finished global propagation across all edge clusters:</p>
-                              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[12px] space-y-1.5 text-slate-800">
-                                <div>• <strong>MX Record:</strong> mail.flutterflirt.com (Priority 10) — ACTIVE</div>
-                                <div>• <strong>SPF Record:</strong> v=spf1 include:_spf.flutterflirt.com ~all — VERIFIED</div>
-                                <div>• <strong>DKIM Selector:</strong> ff2026._domainkey (2048-bit RSA) — VERIFIED</div>
-                                <div>• <strong>DMARC Policy:</strong> v=DMARC1; p=reject; pct=100 — STRICT ACTIVE</div>
-                              </div>
-                              <p className="text-emerald-700 font-semibold">Your sovereign mailboxes are ready for live dispatch.</p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 3,
-                          folder: 'inbox',
-                          starred: true,
-                          from: 'Stripe Billing System',
-                          email: 'invoices@stripe.com',
-                          to: 'admin@yourcompany.com',
-                          subject: 'Payout Succeeded: $14,250.00 USD to Operating Account',
-                          snippet: 'A scheduled payout of $14,250.00 USD has been initiated to your linked corporate bank account...',
-                          time: 'Nov 17',
-                          security: { spf: '✓ SPF PASS', dkim: '✓ DKIM-2048 PASS', dmarc: '✓ DMARC PASS' },
-                          body: (
-                            <div className="space-y-3.5">
-                              <p>Hello Finance Team,</p>
-                              <p>A scheduled payout of <strong className="text-slate-900">$14,250.00 USD</strong> has been completed to your corporate bank account (*4910).</p>
-                              <p className="text-slate-500 text-xs font-mono">Reference ID: po_1OaB52Lkd82x982Lms</p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 4,
-                          folder: 'sent',
-                          starred: false,
-                          from: 'You (admin@yourcompany.com)',
-                          email: 'admin@yourcompany.com',
-                          to: 'partners@venturecapital.io',
-                          subject: 'Enterprise Domain Migration & Compliance Signoff Notice',
-                          snippet: 'Hi Partners, We have finalized our transition to FlutterFlirt Mail dedicated sovereign infrastructure...',
-                          time: 'Nov 16',
-                          security: { spf: '✓ OUTBOUND SIGNED', dkim: '✓ 2048-BIT RSA SEAL', dmarc: '✓ ENFORCED' },
-                          attachment: { name: 'Signed_Migration_Notice.pdf', size: '1.1 MB' },
-                          body: (
-                            <div className="space-y-3.5">
-                              <p>Hi Partners,</p>
-                              <p>
-                                We have officially finalized our corporate email transition to FlutterFlirt Mail's dedicated sovereign infrastructure.
-                              </p>
-                              <p>
-                                All outbound communications from our team are now cryptographically signed with 2048-bit RSA keys and protected by strict DMARC rejection policies. Please whitelist our primary domain for unhindered direct dispatch.
-                              </p>
-                              <p className="text-slate-600 font-medium">Warm regards,<br />Leadership Team</p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 5,
-                          folder: 'drafts',
-                          starred: false,
-                          from: 'Draft (You)',
-                          email: 'admin@yourcompany.com',
-                          to: 'all-team@yourcompany.com',
-                          subject: '[Draft] Company Guidelines on Sovereign Mail & Zero Ad Surveillance',
-                          snippet: 'Team, please review our new internal guidelines on corporate communications privacy and zero third-party AI training...',
-                          time: 'Draft Saved',
-                          body: (
-                            <div className="space-y-3.5">
-                              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-mono">
-                                📝 DRAFT NOT YET DISPATCHED • Click &quot;Resume in Compose&quot; to edit and send.
-                              </div>
-                              <p>Team,</p>
-                              <p>
-                                Please review the attached briefing regarding our new internal email protocols. Unlike generic big-tech providers, our mailbox data is hosted on sovereign hardware with zero algorithmic scanning and zero ad tracking.
-                              </p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 6,
-                          folder: 'trash',
-                          starred: false,
-                          from: 'Outdated Vendor Newsletter',
-                          email: 'promo@legacywebmail.com',
-                          to: 'admin@yourcompany.com',
-                          subject: '[Expired] Legacy Webmail Subscription Renewal Notice',
-                          snippet: 'Your legacy webmail service renewal notice. This item was discarded during domain migration...',
-                          time: 'Nov 10',
-                          body: (
-                            <div className="space-y-3.5">
-                              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-mono">
-                                🗑️ This message is in Trash and will be permanently purged in 18 days.
-                              </div>
-                              <p className="text-slate-500">Notice from obsolete legacy webmail provider prior to migration.</p>
-                            </div>
-                          ),
-                        },
-                      ].filter((item) => {
-                        if (showcaseEmailFolder === 'starred') return item.starred;
-                        return item.folder === showcaseEmailFolder;
-                      });
-
-                      // Current active email to read
-                      const activeEmail =
-                        displayedEmails.find((e) => e.id === selectedEmailId) ||
-                        displayedEmails[0];
-
-                      return (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 h-full min-h-[580px]">
-                          {/* Email List Column */}
-                          <div className="lg:col-span-5 border-r border-[#dfe3e8] flex flex-col h-full bg-slate-50/40">
-                            {/* List Top Bar */}
-                            <div className="p-3.5 border-b border-[#dfe3e8] flex items-center justify-between bg-white text-[12.5px] font-semibold text-slate-700">
-                              <span className="capitalize font-bold text-[#181c20]">
-                                {showcaseEmailFolder === 'sent'
-                                  ? 'Sent Mail'
-                                  : showcaseEmailFolder}{' '}
-                                ({displayedEmails.length} {displayedEmails.length === 1 ? 'item' : 'items'})
-                              </span>
-                              <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                TLS 1.3 Active
-                              </span>
-                            </div>
-
-                            {/* Dynamic Email Items List */}
-                            <div className="divide-y divide-slate-100 flex-1 overflow-y-auto">
-                              {displayedEmails.map((item) => (
-                                <div
-                                  key={item.id}
-                                  onClick={() => setSelectedEmailId(item.id)}
-                                  className={`p-3.5 cursor-pointer transition-all duration-150 ${
-                                    activeEmail?.id === item.id
-                                      ? 'bg-[#cad6ff]/40 border-l-4 border-l-[#315bdb] shadow-xs'
-                                      : 'hover:bg-slate-100/70 hover:translate-x-0.5'
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between text-[12.5px] mb-1">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      {item.starred && (
-                                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
-                                      )}
-                                      <span
-                                        className={`font-semibold truncate ${
-                                          activeEmail?.id === item.id
-                                            ? 'text-[#0340c2]'
-                                            : 'text-slate-900'
-                                        }`}
-                                      >
-                                        {item.from}
-                                      </span>
-                                    </div>
-                                    <span className="text-[11px] text-slate-400 font-mono shrink-0 ml-2">
-                                      {item.time}
-                                    </span>
-                                  </div>
-                                  <div className="text-[13px] font-medium text-slate-800 truncate mb-1">
-                                    {item.subject}
-                                  </div>
-                                  <div className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed">
-                                    {item.snippet}
-                                  </div>
-                                </div>
-                              ))}
-
-                              {displayedEmails.length === 0 && (
-                                <div className="p-8 text-center text-slate-400 text-sm">
-                                  No messages in {showcaseEmailFolder}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Reading Pane Column */}
-                          <div className="lg:col-span-7 p-5 sm:p-6 flex flex-col justify-between bg-white h-full">
-                            {activeEmail ? (
-                              <div className="space-y-5 animate-in fade-in duration-200">
-                                {/* Email Headers */}
-                                <div className="pb-4 border-b border-slate-200 space-y-3">
-                                  <div className="flex items-start justify-between gap-4">
-                                    <h3 className="text-[17px] font-bold text-[#181c20] leading-snug">
-                                      {activeEmail.subject}
-                                    </h3>
-                                    {activeEmail.security && (
-                                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10.5px] font-mono font-bold border border-emerald-200">
-                                          {activeEmail.security.spf}
-                                        </span>
-                                        <span className="px-2 py-0.5 rounded bg-blue-100 text-[#003ab3] text-[10.5px] font-mono font-bold border border-blue-200">
-                                          {activeEmail.security.dkim}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center justify-between text-[13px]">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-[#315bdb] text-white flex items-center justify-center font-bold text-[12px]">
-                                        {activeEmail.from.slice(0, 2).toUpperCase()}
-                                      </div>
-                                      <div>
-                                        <div className="font-semibold text-slate-900">
-                                          {activeEmail.from}{' '}
-                                          <span className="font-normal text-slate-500 text-xs">
-                                            &lt;{activeEmail.email}&gt;
-                                          </span>
-                                        </div>
-                                        <div className="text-slate-500 text-[11.5px]">
-                                          To: {activeEmail.to}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <span className="text-slate-400 text-[11.5px] font-mono">
-                                      {activeEmail.time}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Email Body */}
-                                <div className="text-[14px] text-slate-700 leading-relaxed">
-                                  {activeEmail.body}
-
-                                  {/* Optional Attachment Pill */}
-                                  {activeEmail.attachment && (
-                                    <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                                      <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-lg bg-blue-100 text-[#315bdb] flex items-center justify-center font-bold text-xs">
-                                          PDF
-                                        </div>
-                                        <div>
-                                          <div className="text-[13px] font-semibold text-slate-900">
-                                            {activeEmail.attachment.name}
-                                          </div>
-                                          <div className="text-[11.5px] text-slate-500">
-                                            {activeEmail.attachment.size} • Cryptographically Signed
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={() =>
-                                          triggerShowcaseToast(
-                                            `✓ Downloaded ${activeEmail.attachment?.name}`
-                                          )
-                                        }
-                                        className="px-3 py-1.5 rounded-lg text-[12px] font-semibold text-[#315bdb] hover:bg-blue-50 border border-blue-200 transition-colors cursor-pointer"
-                                      >
-                                        Download
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Action Buttons Depending on Folder */}
-                                <div className="pt-4 flex items-center gap-3 border-t border-slate-100">
-                                  {showcaseEmailFolder === 'drafts' ? (
-                                    <button
-                                      onClick={() => {
-                                        setShowcaseComposeOpen(true);
-                                        setShowcaseComposeTo(activeEmail.to);
-                                        setShowcaseComposeSubject(activeEmail.subject.replace('[Draft] ', ''));
-                                      }}
-                                      className="px-4 py-2 rounded-lg bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                                    >
-                                      <Plus className="w-3.5 h-3.5" />
-                                      <span>Resume in Compose</span>
-                                    </button>
-                                  ) : showcaseEmailFolder === 'trash' ? (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          triggerShowcaseToast('✓ Message restored to Inbox.');
-                                          setShowcaseEmailFolder('inbox');
-                                          setSelectedEmailId(1);
-                                        }}
-                                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                                      >
-                                        <RotateCcw className="w-3.5 h-3.5" />
-                                        <span>Restore to Inbox</span>
-                                      </button>
-                                      <button
-                                        onClick={() => triggerShowcaseToast('✓ Message deleted permanently.')}
-                                        className="px-4 py-2 rounded-lg border border-rose-200 text-rose-700 text-[13px] font-semibold hover:bg-rose-50 transition-colors cursor-pointer"
-                                      >
-                                        Delete Permanently
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          setShowcaseComposeOpen(true);
-                                          setShowcaseComposeTo(activeEmail.email);
-                                          setShowcaseComposeSubject(`Re: ${activeEmail.subject}`);
-                                        }}
-                                        className="px-4 py-2 rounded-lg bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                                      >
-                                        <Send className="w-3.5 h-3.5" />
-                                        <span>Reply</span>
-                                      </button>
-                                      <button
-                                        onClick={() => triggerShowcaseToast('✓ Email forwarded.')}
-                                        className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-[13px] font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-                                      >
-                                        Forward
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="p-8 text-center text-slate-400">
-                                Select a message from the list to read.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* ── VIEW 2: INTERACTIVE TO-DO & TASKS ── */}
-                    {showcaseTab === 'todo' && (
-                      <div className="p-6 space-y-6 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-                          <div>
-                            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 uppercase tracking-wider font-mono">
-                              <CheckSquare className="w-3.5 h-3.5" /> Functional Task Manager
-                            </div>
-                            <h3 className="text-[20px] font-bold text-[#181c20] mt-0.5">
-                              Workspace To-Do &amp; Action Items
-                            </h3>
-                          </div>
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-mono text-[12px] font-bold">
-                            {showcaseTasks.filter(t => !t.completed).length} Pending
-                          </span>
-                        </div>
-
-                        {/* Add New Task Form */}
-                        <form onSubmit={handleAddShowcaseTask} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newTaskInput}
-                            onChange={(e) => setNewTaskInput(e.target.value)}
-                            placeholder="Type a new task (e.g. Set up sales@ alias, invite team member)..."
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-[14px] text-slate-800 focus:outline-none focus:border-[#315bdb] focus:ring-2 focus:ring-[#315bdb]/15"
-                          />
-                          <button
-                            type="submit"
-                            className="px-5 py-2.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold transition-all active:scale-[0.98] cursor-pointer"
-                          >
-                            Add Task
-                          </button>
-                        </form>
-
-                        {/* Tasks Checklist */}
-                        <div className="space-y-2.5">
-                          {showcaseTasks.map((task) => (
-                            <div
-                              key={task.id}
-                              onClick={() => handleToggleTask(task.id)}
-                              className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
-                                task.completed
-                                  ? 'bg-slate-50 border-slate-200 opacity-60'
-                                  : 'bg-white border-slate-200/90 hover:border-[#315bdb] hover:shadow-xs hover:translate-x-0.5'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                                <div
-                                  className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 ${
-                                    task.completed
-                                      ? 'bg-emerald-600 border-emerald-600 text-white'
-                                      : 'border-slate-300 bg-white hover:border-[#315bdb]'
-                                  }`}
-                                >
-                                  {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                                </div>
-                                <span className={`text-[14px] font-medium truncate ${
-                                  task.completed ? 'line-through text-slate-400' : 'text-slate-800'
-                                }`}>
-                                  {task.title}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold ${
-                                  task.priority === 'high'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : task.priority === 'medium'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-slate-100 text-slate-700'
-                                }`}>
-                                  {task.priority.toUpperCase()}
-                                </span>
-                                <span className="text-[11.5px] font-mono text-slate-500 hidden sm:inline">
-                                  {task.dueDate}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ── VIEW 3: CALENDAR (COMING SOON) ── */}
-                    {showcaseTab === 'calendar' && (
-                      <div className="p-8 sm:p-14 flex flex-col items-center justify-center text-center space-y-6 min-h-[520px] animate-in fade-in duration-200">
-                        {/* Floating Animated Icon */}
-                        <div className="relative">
-                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 text-white flex items-center justify-center shadow-[0_10px_25px_rgba(245,158,11,0.35)] animate-bounce" style={{ animationDuration: '3s' }}>
-                            <Calendar className="w-10 h-10 text-white" />
-                          </div>
-                          <div className="absolute -inset-2 rounded-2xl bg-amber-400/20 blur-xl -z-10 animate-pulse" />
-                        </div>
-
-                        <div className="max-w-md space-y-2">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-mono font-bold border border-amber-300">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-600" /> PHASE 2 RELEASE • COMING SOON
-                          </div>
-                          <h3 className="text-2xl font-bold text-[#181c20]">
-                            Integrated Team Calendar
-                          </h3>
-                          <p className="text-[14px] text-slate-500 leading-relaxed">
-                            Smart meeting scheduling with Google &amp; Outlook 2-way sync, time-zone booking links, and CalDAV standard protocol integration.
-                          </p>
-                        </div>
-
-                        {/* Feature Preview Checklist */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left max-w-lg w-full bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>Multi-Calendar Team Overlay</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>Google &amp; Outlook 2-Way Sync</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>1-Click Video Meeting Links</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>CalDAV Standard Protocol</span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => triggerShowcaseToast('✓ Added to Calendar Early Access list! We will notify you on launch.')}
-                          className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[13.5px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                        >
-                          Notify Me on Release
-                        </button>
-                      </div>
-                    )}
-
-                    {/* ── VIEW 4: TEAM DIRECTORY (COMING SOON) ── */}
-                    {showcaseTab === 'contacts' && (
-                      <div className="p-8 sm:p-14 flex flex-col items-center justify-center text-center space-y-6 min-h-[520px] animate-in fade-in duration-200">
-                        {/* Floating Animated Icon */}
-                        <div className="relative">
-                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-400 text-white flex items-center justify-center shadow-[0_10px_25px_rgba(147,51,234,0.35)] animate-bounce" style={{ animationDuration: '3s' }}>
-                            <Users className="w-10 h-10 text-white" />
-                          </div>
-                          <div className="absolute -inset-2 rounded-2xl bg-purple-500/20 blur-xl -z-10 animate-pulse" />
-                        </div>
-
-                        <div className="max-w-md space-y-2">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 text-[11px] font-mono font-bold border border-purple-300">
-                            <Sparkles className="w-3.5 h-3.5 text-purple-600" /> ENTERPRISE DIRECTORY • COMING SOON
-                          </div>
-                          <h3 className="text-2xl font-bold text-[#181c20]">
-                            Centralized Team Directory
-                          </h3>
-                          <p className="text-[14px] text-slate-500 leading-relaxed">
-                            Global Address List (GAL) auto-discovery, LDAP/Active Directory synchronization, and shared departmental distribution groups.
-                          </p>
-                        </div>
-
-                        {/* Feature Preview Checklist */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left max-w-lg w-full bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>Global Address List (GAL)</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>LDAP &amp; CardDAV Sync</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>Shared Team Aliases &amp; Routing</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={3} />
-                            <span>Instant Org Chart Mapping</span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => triggerShowcaseToast('✓ Added to Team Directory Early Access list! We will notify you on launch.')}
-                          className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-[13.5px] font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                        >
-                          Notify Me on Release
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
-
-                {/* ── LIVE INFRASTRUCTURE TELEMETRY STATUS BAR ── */}
-                <div className="h-9 bg-[#0c1a39] px-4 sm:px-6 flex items-center justify-between text-[11px] font-mono text-slate-300 border-t border-slate-800">
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      TLS 1.3 Strict
-                    </span>
-                    <span className="hidden sm:inline text-slate-500">•</span>
-                    <span className="hidden sm:inline text-blue-300">2048-Bit RSA DKIM Active</span>
-                    <span className="hidden md:inline text-slate-500">•</span>
-                    <span className="hidden md:inline text-emerald-400">99.9% Deliverability SLA</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Lock className="w-3 h-3 text-[#315bdb]" />
-                    <span>Zero Ad Surveillance</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── FLOATING RICH COMPOSE MODAL OVERLAY ── */}
-              {showcaseComposeOpen && (
-                <div className="absolute bottom-4 right-4 sm:right-6 w-[94%] sm:w-[480px] bg-white rounded-2xl shadow-2xl border-2 border-[#315bdb] overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-6 duration-200">
-                  {/* Compose Header */}
-                  <div className="h-10 bg-[#315bdb] px-4 flex items-center justify-between text-white select-none">
-                    <span className="text-[13px] font-bold flex items-center gap-2">
-                      <Mail className="w-4 h-4" /> New Message
-                    </span>
-                    <button
-                      onClick={() => setShowcaseComposeOpen(false)}
-                      className="p-1 hover:bg-white/20 rounded-md transition-colors cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Compose Form */}
-                  <div className="p-4 space-y-2.5 text-[13.5px]">
-                    <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
-                      <span className="text-slate-400 font-medium w-12">To:</span>
-                      <input
-                        type="text"
-                        value={showcaseComposeTo}
-                        onChange={(e) => setShowcaseComposeTo(e.target.value)}
-                        className="flex-1 font-mono text-slate-900 focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
-                      <span className="text-slate-400 font-medium w-12">Subject:</span>
-                      <input
-                        type="text"
-                        value={showcaseComposeSubject}
-                        onChange={(e) => setShowcaseComposeSubject(e.target.value)}
-                        className="flex-1 font-semibold text-slate-900 focus:outline-none"
-                      />
-                    </div>
-                    <textarea
-                      rows={5}
-                      value={showcaseComposeBody}
-                      onChange={(e) => setShowcaseComposeBody(e.target.value)}
-                      className="w-full text-slate-700 focus:outline-none resize-none pt-1"
-                    />
-
-                    {/* Compose Footer Toolbar */}
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <Bold className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
-                        <Italic className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
-                        <LinkIcon className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
-                        <Paperclip className="w-4 h-4 hover:text-[#315bdb] cursor-pointer" />
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setShowcaseComposeOpen(false);
-                          triggerShowcaseToast(`✓ Email sent successfully to ${showcaseComposeTo} with 2048-bit DKIM signature!`);
-                        }}
-                        className="px-5 py-2 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white font-semibold text-[13px] flex items-center gap-1.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-                      >
-                        <span>Send Message</span>
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Toast Feedback Notice */}
-              {showcaseToast && (
-                <div className="absolute top-14 right-6 bg-[#0c1a39] text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-[13px] font-semibold flex items-center gap-2 z-30 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{showcaseToast}</span>
-                </div>
-              )}
             </div>
           </div>
         </section>
@@ -1972,9 +1985,8 @@ export default function LandingPage() {
                     <button
                       key={c}
                       onClick={() => setCurrency(c)}
-                      className={`px-3 py-1.5 rounded-lg transition-all ${
-                        currency === c ? 'bg-white text-[#315bdb] shadow-xs' : 'text-[#434654] hover:text-[#181c20]'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${currency === c ? 'bg-white text-[#315bdb] shadow-xs' : 'text-[#434654] hover:text-[#181c20]'
+                        }`}
                     >
                       {c === 'USD' && 'USD ($)'}
                       {c === 'EUR' && 'EUR (€)'}
@@ -1987,17 +1999,15 @@ export default function LandingPage() {
                 <div className="inline-flex items-center gap-2 p-1.5 bg-[#ebeef3] rounded-xl shadow-xs border border-[#dfe3e8]/70">
                   <button
                     onClick={() => setBillingCycle('monthly')}
-                    className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${
-                      !isAnnual ? 'bg-white text-[#181c20] shadow-xs' : 'text-[#434654] hover:text-[#181c20]'
-                    }`}
+                    className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all ${!isAnnual ? 'bg-white text-[#181c20] shadow-xs' : 'text-[#434654] hover:text-[#181c20]'
+                      }`}
                   >
                     Monthly Billing
                   </button>
                   <button
                     onClick={() => setBillingCycle('annual')}
-                    className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all flex items-center gap-1.5 ${
-                      isAnnual ? 'bg-white text-[#181c20] shadow-xs' : 'text-[#434654] hover:text-[#181c20]'
-                    }`}
+                    className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-all flex items-center gap-1.5 ${isAnnual ? 'bg-white text-[#181c20] shadow-xs' : 'text-[#434654] hover:text-[#181c20]'
+                      }`}
                   >
                     <span>Annual Billing</span>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold">
@@ -2151,107 +2161,258 @@ export default function LandingPage() {
         </section>
 
         {/* ═══════════════════════════════════════════════════════════
-            10. FAQ SECTION
+            10. FAQ SECTION (RADIX UI ACCORDION - 5 ESSENTIAL FAQS)
         ═══════════════════════════════════════════════════════════ */}
-        <section id="faq" className="w-full py-20 px-6 lg:px-12 bg-white">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold text-[#181c20] mb-3">
+        <section id="faq" className="w-full py-24 px-6 lg:px-12 bg-white">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#e8edff] text-[#0340c2] font-mono text-[11px] mb-2.5 font-bold border border-[#cad6ff]">
+                <span>HELP &amp; FREQUENTLY ASKED QUESTIONS</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#181c20] mb-3 tracking-tight">
                 Frequently Asked Questions
               </h2>
-              <p className="text-[16px] text-[#434654]">
-                Everything you need to know about FlutterFlirt Mail hosting, authentication, and migration.
+              <p className="text-[15.5px] text-[#515e80] leading-relaxed">
+                Everything you need to know about sovereign business mail hosting, custom domain DNS, and mailbox provisioning.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              {/* Column 1 */}
-              <div className="space-y-4">
-                {FAQS.slice(0, 5).map((faq, i) => (
-                  <div key={i} className="bg-[#f1f4f9] rounded-xl overflow-hidden border border-[#dfe3e8]/60">
-                    <button
-                      onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                      className="w-full p-5 text-left flex items-center justify-between text-[15px] text-[#181c20] font-semibold cursor-pointer"
-                    >
-                      <span>{faq.q}</span>
-                      <ChevronDown
-                        className={`w-4 h-4 text-[#315bdb] transition-transform duration-200 ${
-                          openFaq === i ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
-                    {openFaq === i && (
-                      <div className="px-5 pb-5 text-[14px] text-[#434654] leading-relaxed border-t border-slate-200/50 pt-3">
-                        {faq.a}
+            {/* Radix UI Animated Accordion Component */}
+            <Accordion.Root
+              type="single"
+              collapsible
+              defaultValue="faq-0"
+              className="w-full space-y-3.5 max-w-3xl mx-auto"
+            >
+              {FAQS.map((faq, i) => (
+                <Accordion.Item
+                  key={i}
+                  value={`faq-${i}`}
+                  className="rounded-2xl border border-slate-200/80 bg-[#f8fafc] hover:bg-[#f3f6fb] transition-all overflow-hidden data-[state=open]:bg-white data-[state=open]:border-[#315bdb]/40 data-[state=open]:shadow-md"
+                >
+                  <Accordion.Header className="flex">
+                    <Accordion.Trigger className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 text-[15.5px] font-semibold text-[#181c20] hover:text-[#315bdb] transition-colors cursor-pointer group">
+                      <div className="flex items-center gap-3.5">
+                        <span className="w-8 h-8 rounded-xl bg-[#e8edff] text-[#0340c2] text-[12px] font-mono font-bold flex items-center justify-center shrink-0 group-data-[state=open]:bg-[#315bdb] group-data-[state=open]:text-white transition-colors shadow-2xs">
+                          0{i + 1}
+                        </span>
+                        <span className="leading-snug">{faq.q}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Column 2 */}
-              <div className="space-y-4">
-                {FAQS.slice(5).map((faq, i) => {
-                  const idx = i + 5;
-                  return (
-                    <div key={idx} className="bg-[#f1f4f9] rounded-xl overflow-hidden border border-[#dfe3e8]/60">
-                      <button
-                        onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                        className="w-full p-5 text-left flex items-center justify-between text-[15px] text-[#181c20] font-semibold cursor-pointer"
-                      >
-                        <span>{faq.q}</span>
-                        <ChevronDown
-                          className={`w-4 h-4 text-[#315bdb] transition-transform duration-200 ${
-                            openFaq === idx ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </button>
-                      {openFaq === idx && (
-                        <div className="px-5 pb-5 text-[14px] text-[#434654] leading-relaxed border-t border-slate-200/50 pt-3">
-                          {faq.a}
-                        </div>
-                      )}
+                      <ChevronDown
+                        className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-300 ease-out group-data-[state=open]:rotate-180 group-data-[state=open]:text-[#315bdb]"
+                        aria-hidden
+                      />
+                    </Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Content className="px-5 sm:px-6 pb-6 pt-1 text-[14px] text-slate-600 leading-relaxed border-t border-slate-100 data-[state=open]:animate-in data-[state=closed]:animate-out duration-200">
+                    <div className="pl-11.5 text-[#434654] leading-relaxed">
+                      {faq.a}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  </Accordion.Content>
+                </Accordion.Item>
+              ))}
+            </Accordion.Root>
           </div>
         </section>
 
         {/* ═══════════════════════════════════════════════════════════
-            11. FINAL CALL TO ACTION (CTA) SECTION
+            11. FINAL CALL TO ACTION (CTA) & ONBOARDING LEAD FORM
         ═══════════════════════════════════════════════════════════ */}
-        <section id="contact" className="w-full py-24 px-6 lg:px-12 bg-[#0D1B3A] text-white relative overflow-hidden">
+        <section id="get-started" className="w-full py-24 px-6 lg:px-12 bg-[#0D1B3A] text-white relative overflow-hidden scroll-mt-16">
+          <div id="contact" className="absolute -top-20" />
           {/* Ambient Glows */}
           <div className="absolute -top-24 left-1/4 w-96 h-96 bg-[#315bdb]/25 rounded-full blur-[120px] pointer-events-none" />
           <div className="absolute -bottom-24 right-1/4 w-96 h-96 bg-[#c7006b]/20 rounded-full blur-[120px] pointer-events-none" />
 
-          <div className="max-w-4xl mx-auto text-center relative z-10 space-y-8">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#162B5E] text-[#dae2ff] font-mono text-[11px]">
-              DEPLOY SOVEREIGN BUSINESS EMAIL
+          <div className="max-w-4xl mx-auto text-center relative z-10 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#162B5E] text-[#dae2ff] font-mono text-[11px] border border-[#234185]">
+              <Mail className="w-3.5 h-3.5 text-[#315bdb]" />
+              <span>DEPLOY SOVEREIGN BUSINESS EMAIL</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-[50px] text-white font-bold tracking-tight leading-tight">
+
+            <h2 className="text-3xl sm:text-4xl lg:text-[46px] text-white font-bold tracking-tight leading-tight">
               Give Your Business a Professional Email Identity.
             </h2>
+
             <p className="text-[16px] text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Bring your business communication together with FlutterFlirt Mail. Set up your custom domain in minutes and take full control of your team's correspondence.
+              Bring your business communication together with FlutterFlirt Mail. Set up your custom domain in minutes and take full control of your team&apos;s correspondence.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-              <a
-                href="#pricing"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-[#315bdb] text-white text-[15px] font-semibold shadow-[0_0_20px_rgba(49,91,219,0.4)] hover:bg-[#274bb7] transition-all active:scale-[0.98]"
-              >
-                Get Started
-              </a>
-              <a
-                href="mailto:support@flutterflirt.com"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-[#162B5E] text-white text-[15px] font-semibold hover:bg-[#1f3a75] transition-all"
-              >
-                Talk to Our Team
-              </a>
+
+            {/* Interactive Lead / Setup Form Card */}
+            <div className="max-w-2xl mx-auto mt-6 p-6 sm:p-8 rounded-2xl bg-[#132347]/95 border border-[#234185] shadow-2xl backdrop-blur-xl text-left">
+              {leadSubmitted ? (
+                <div className="py-10 px-4 text-center space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 mx-auto flex items-center justify-center shadow-lg">
+                    <Check className="w-8 h-8 stroke-[3]" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white">Setup Request Received!</h3>
+                  <p className="text-[14.5px] text-slate-300 max-w-md mx-auto leading-relaxed">
+                    Thank you! Your mailbox onboarding details have been sent directly to our team at{' '}
+                    <span className="text-[#60a5fa] font-mono font-semibold">sumanqaj9876@gmail.com</span>.
+                  </p>
+                  <p className="text-[12.5px] text-slate-400">
+                    We will verify your domain DNS records and reach out to help you get your business mail live.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setLeadSubmitted(false);
+                      setLeadForm({
+                        name: '',
+                        email: '',
+                        domain: '',
+                        phone: '',
+                        mailboxCount: 'Starter (1 - 5 Mailboxes)',
+                        message: '',
+                      });
+                    }}
+                    className="mt-4 px-6 py-2.5 rounded-xl bg-[#1f3a75] hover:bg-[#274bb7] text-white text-[13px] font-semibold transition-all cursor-pointer"
+                  >
+                    Submit Another Request
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleLeadSubmit} className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#234185]">
+                    <div>
+                      <h3 className="text-[17px] font-bold text-white">
+                        Get Started with Your Domain
+                      </h3>
+                      <p className="text-[12.5px] text-slate-300 mt-0.5">
+                        Fill in your details — setup request is sent straight to our team.
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-md bg-[#1f3a75] text-[#dae2ff] border border-[#2a4d9c]">
+                      Fast Setup
+                    </span>
+                  </div>
+
+                  {leadError && (
+                    <div className="p-3 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[13px] flex items-center gap-2">
+                      <XCircle className="w-4 h-4 shrink-0" />
+                      <span>{leadError}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <div>
+                      <label className="block text-[12px] font-semibold text-slate-300 mb-1.5">
+                        Full Name <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={leadForm.name}
+                        onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
+                        placeholder="Sarah Jenkins"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a152d] border border-[#234185] text-white placeholder-slate-500 text-[13.5px] focus:outline-hidden focus:border-[#315bdb] focus:ring-1 focus:ring-[#315bdb] transition-all"
+                      />
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className="block text-[12px] font-semibold text-slate-300 mb-1.5">
+                        Work Email <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={leadForm.email}
+                        onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
+                        placeholder="sarah@company.com"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a152d] border border-[#234185] text-white placeholder-slate-500 text-[13.5px] focus:outline-hidden focus:border-[#315bdb] focus:ring-1 focus:ring-[#315bdb] transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Domain */}
+                    <div>
+                      <label className="block text-[12px] font-semibold text-slate-300 mb-1.5">
+                        Company Domain
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-[13px] font-mono">@</span>
+                        <input
+                          type="text"
+                          value={leadForm.domain}
+                          onChange={(e) => setLeadForm({ ...leadForm, domain: e.target.value.replace(/^@/, '') })}
+                          placeholder="yourcompany.com"
+                          className="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-[#0a152d] border border-[#234185] text-white placeholder-slate-500 text-[13.5px] font-mono focus:outline-hidden focus:border-[#315bdb] focus:ring-1 focus:ring-[#315bdb] transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Phone / WhatsApp */}
+                    <div>
+                      <label className="block text-[12px] font-semibold text-slate-300 mb-1.5">
+                        Phone / WhatsApp
+                      </label>
+                      <input
+                        type="tel"
+                        value={leadForm.phone}
+                        onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
+                        placeholder="+91 98765 43210"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a152d] border border-[#234185] text-white placeholder-slate-500 text-[13.5px] focus:outline-hidden focus:border-[#315bdb] focus:ring-1 focus:ring-[#315bdb] transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Mailbox Volume / Plan */}
+                  <div>
+                    <label className="block text-[12px] font-semibold text-slate-300 mb-1.5">
+                      Mailboxes Required / Preferred Plan
+                    </label>
+                    <select
+                      value={leadForm.mailboxCount}
+                      onChange={(e) => setLeadForm({ ...leadForm, mailboxCount: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a152d] border border-[#234185] text-white text-[13.5px] focus:outline-hidden focus:border-[#315bdb] focus:ring-1 focus:ring-[#315bdb] transition-all cursor-pointer"
+                    >
+                      <option value="Starter (1 - 5 Mailboxes)">Starter (1 – 5 Mailboxes) • $4/mo</option>
+                      <option value="Business (5 - 25 Mailboxes)">Business (5 – 25 Mailboxes) • $12/mo (Most Popular)</option>
+                      <option value="Growth (25 - 100 Mailboxes)">Growth (25 – 100 Mailboxes) • Custom Tier</option>
+                      <option value="Enterprise (100+ Custom Nodes)">Enterprise (100+ Mailboxes, Dedicated Sovereign Node) • $29/mo</option>
+                    </select>
+                  </div>
+
+                  {/* Optional Message */}
+                  <div>
+                    <label className="block text-[12px] font-semibold text-slate-300 mb-1.5">
+                      Notes or Migration Questions <span className="text-slate-500 font-normal">(Optional)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={leadForm.message}
+                      onChange={(e) => setLeadForm({ ...leadForm, message: e.target.value })}
+                      placeholder="e.g. Need help migrating 10 mailboxes from Google Workspace / cPanel."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a152d] border border-[#234185] text-white placeholder-slate-500 text-[13px] resize-none focus:outline-hidden focus:border-[#315bdb] focus:ring-1 focus:ring-[#315bdb] transition-all"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={leadLoading}
+                    className="w-full py-3.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] disabled:opacity-60 text-white font-bold text-[14.5px] shadow-[0_0_20px_rgba(49,91,219,0.4)] transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer mt-2"
+                  >
+                    {leadLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Sending Request to Deployment Team...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Get Started with My Mailbox</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
             </div>
-            <div className="pt-6 flex flex-wrap items-center justify-center gap-4 text-slate-400 text-[12px]">
+
+            {/* Micro-Trust Signals */}
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-4 text-slate-400 text-[12px]">
               <span className="flex items-center gap-1.5">
                 <CreditCard className="w-4 h-4 text-[#dae2ff]" /> No credit card required for consultation
               </span>
