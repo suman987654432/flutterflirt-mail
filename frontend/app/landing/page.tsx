@@ -218,13 +218,12 @@ export default function LandingPage() {
       <header className="fixed top-0 w-full z-50 bg-[#f6f9fe]/85 backdrop-blur-xl border-b border-[#dfe3e8] shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-16 max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link href="/landing" className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#315bdb] flex items-center justify-center text-white shadow-xs">
-              <Mail className="w-4 h-4 text-white" strokeWidth={2.5} />
-            </div>
-            <span className="text-[18px] font-bold tracking-tight text-[#181c20]">
-              FlutterFlirt <span className="text-[#315bdb]">Mail</span>
-            </span>
+          <Link href="/landing" className="flex items-center gap-3 group">
+            <img
+              src="/logo.png"
+              alt="FlutterFlirt Mail"
+              className="h-8 sm:h-9 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+            />
           </Link>
 
           {/* Desktop Nav */}
@@ -247,10 +246,10 @@ export default function LandingPage() {
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden sm:flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3">
             <Link
               href="/"
-              className="text-[14px] font-medium text-[#434654] hover:text-[#315bdb] px-3 py-1.5 rounded-lg transition-colors"
+              className="text-[14px] font-medium text-[#434654] hover:text-[#315bdb] px-3.5 py-2 rounded-lg transition-colors"
             >
               Sign In
             </Link>
@@ -260,13 +259,6 @@ export default function LandingPage() {
             >
               Get Started
             </a>
-            <Link
-              href="/"
-              className="w-8 h-8 rounded-full bg-[#315bdb] flex items-center justify-center text-white shadow-xs hover:opacity-90"
-              title="Open Webmail"
-            >
-              <Inbox className="w-4 h-4" />
-            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -2434,8 +2426,11 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#1F3A75]">
             <div className="lg:col-span-1 flex flex-col gap-4">
               <div className="flex items-center gap-2">
-                <Mail className="w-6 h-6 text-[#dae2ff]" />
-                <span className="text-[18px] text-white font-bold">FlutterFlirt Mail</span>
+                <img
+                  src="/logo-white.png"
+                  alt="FlutterFlirt Mail"
+                  className="h-8 w-auto object-contain"
+                />
               </div>
               <p className="text-[13px] text-slate-400 leading-relaxed">
                 Professional business email hosting and centralized management for modern teams by FlutterFlirt Private Limited.
