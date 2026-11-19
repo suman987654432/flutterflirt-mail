@@ -165,9 +165,9 @@ export default function WebmailPage() {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [token, setToken] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('admin@codeaddabot.in');
-  const [loginEmail, setLoginEmail] = useState<string>('admin@codeaddabot.in');
-  const [loginPassword, setLoginPassword] = useState<string>('AdminPassword123!');
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [loginEmail, setLoginEmail] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginLoading, setLoginLoading] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
@@ -1577,7 +1577,7 @@ export default function WebmailPage() {
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="w-full bg-white border border-[#8a8886] rounded px-3 py-2 text-xs text-[#201f1e] placeholder-[#a19f9d] focus:outline-none focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4] transition"
-                  placeholder="admin@codeaddabot.in"
+                  placeholder="you@yourdomain.com"
                 />
                 <Mail className="w-4 h-4 text-[#8a8886] absolute right-3 top-2.5" />
               </div>
@@ -1613,20 +1613,6 @@ export default function WebmailPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Credential Helper */}
-          <div className="mt-6 pt-5 border-t border-[#edebe9] flex flex-col items-center gap-2 text-xs text-[#605e5c]">
-            <div className="text-[11px] bg-[#f8f9fa] px-3 py-1.5 rounded border border-[#edebe9] text-[#323130] font-mono">
-              admin@codeaddabot.in / AdminPassword123!
-            </div>
-            <a
-              href="/admin"
-              className="inline-flex items-center gap-1.5 text-[#0078d4] hover:underline transition mt-1"
-            >
-              Admin Console & DNS Settings
-              <ArrowRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
         </div>
       </div>
     );

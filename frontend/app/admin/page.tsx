@@ -60,11 +60,11 @@ export default function AdminConsolePage() {
   const [isAdminAuth, setIsAdminAuth] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [adminRole, setAdminRole] = useState<'superadmin' | 'tenant_admin' | 'domain_admin'>('superadmin');
-  const [adminLoginEmail, setAdminLoginEmail] = useState('admin@codeaddabot.in');
-  const [adminLoginPassword, setAdminLoginPassword] = useState('AdminPassword123!');
+  const [adminLoginEmail, setAdminLoginEmail] = useState('');
+  const [adminLoginPassword, setAdminLoginPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState('');
   const [adminLoginLoading, setAdminLoginLoading] = useState(false);
-  const [currentAdminEmail, setCurrentAdminEmail] = useState('admin@codeaddabot.in');
+  const [currentAdminEmail, setCurrentAdminEmail] = useState('');
 
   // Form states
   const [newDomainName, setNewDomainName] = useState('');
@@ -509,7 +509,7 @@ export default function AdminConsolePage() {
                 value={adminLoginEmail}
                 onChange={e => setAdminLoginEmail(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
-                placeholder="admin@codeaddabot.in"
+                placeholder="admin@yourdomain.com"
               />
             </div>
 
