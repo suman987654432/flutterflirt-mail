@@ -103,8 +103,8 @@ docker compose up -d --build
 ```
 
 ### 3. Access Interfaces
-* **Webmail**: `http://localhost:3000` (or `https://mail.flutterflirt.com`)
-* **Admin Console**: `http://localhost:3000/admin` (or `https://mail.flutterflirt.com/admin`)
+* **Webmail**: `http://localhost:3000` 
+* **Admin Console**: `http://localhost:3000/admin` 
 * **API Health**: `http://localhost:8080/health`
 
 ---
