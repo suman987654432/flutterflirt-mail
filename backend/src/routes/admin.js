@@ -124,6 +124,18 @@ router.patch('/tenants/:id', requireSuperadmin, async (req, res) => {
   }
 });
 
+router.delete('/tenants/:id', requireSuperadmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await query('DELETE FROM tenants WHERE id = $1 RETURNING name', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Tenant not found' });
+    await auditLog(req.user.email, 'DELETE_TENANT', id, { name: result.rows[0].name });
+    res.json({ success: true, message: 'Client deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /**
  * 3. Domains
  */
@@ -282,6 +294,59 @@ router.patch('/domains/:id/dmarc', async (req, res) => {
 
     await auditLog(req.user.email, 'UPDATE_DMARC_POLICY', id, { policy });
     res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/domains/:id', async (req, res) => {
+  const { id } = req.params;
+  const { active, dmarcPolicy } = req.body;
+
+  try {
+    const checkDom = await query('SELECT id, tenant_id FROM domains WHERE id = $1', [id]);
+    if (checkDom.rows.length === 0) return res.status(404).json({ error: 'Domain not found' });
+    if (req.user.role === 'domain_admin' && checkDom.rows[0].id !== req.user.domainId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    if (req.user.role === 'tenant_admin' && checkDom.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const updates = [];
+    const values = [id];
+    let counter = 2;
+
+    if (active !== undefined) { updates.push(`active = $${counter++}`); values.push(active); }
+    if (dmarcPolicy !== undefined) { updates.push(`dmarc_policy = $${counter++}`); values.push(dmarcPolicy); }
+
+    if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+    const sql = `UPDATE domains SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1 RETURNING *`;
+    const result = await query(sql, values);
+
+    await auditLog(req.user.email, 'UPDATE_DOMAIN', id, req.body);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/domains/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const checkDom = await query('SELECT id, name, tenant_id FROM domains WHERE id = $1', [id]);
+    if (checkDom.rows.length === 0) return res.status(404).json({ error: 'Domain not found' });
+    if (req.user.role === 'domain_admin') {
+      return res.status(403).json({ error: 'Domain administrators cannot delete domains' });
+    }
+    if (req.user.role === 'tenant_admin' && checkDom.rows[0].tenant_id !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    await query('DELETE FROM domains WHERE id = $1', [id]);
+    await auditLog(req.user.email, 'DELETE_DOMAIN', id, { domain: checkDom.rows[0].name });
+    res.json({ success: true, message: 'Domain deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

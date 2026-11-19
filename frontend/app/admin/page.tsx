@@ -20,6 +20,9 @@ import {
   LogOut,
   ShieldAlert,
   Menu,
+  Pencil,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface DomainRecord {
@@ -380,6 +383,92 @@ export default function AdminConsolePage() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Error creating client');
+    }
+  };
+
+  // Edit & Delete Handlers
+  const [editItem, setEditItem] = useState<{ type: 'domain' | 'user' | 'client'; data: any } | null>(null);
+  const [deleteItem, setDeleteItem] = useState<{ type: 'domain' | 'user' | 'client'; id: string; name: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteItem) return;
+    setActionLoading(true);
+    try {
+      let endpoint = '';
+      if (deleteItem.type === 'domain') endpoint = `${API_BASE}/api/admin/domains/${deleteItem.id}`;
+      if (deleteItem.type === 'user') endpoint = `${API_BASE}/api/admin/mailboxes/${deleteItem.id}`;
+      if (deleteItem.type === 'client') endpoint = `${API_BASE}/api/admin/tenants/${deleteItem.id}`;
+
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        setDeleteItem(null);
+        fetchRealData();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to delete');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting item');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editItem) return;
+    setActionLoading(true);
+    try {
+      let endpoint = '';
+      let bodyData: any = {};
+
+      if (editItem.type === 'domain') {
+        endpoint = `${API_BASE}/api/admin/domains/${editItem.data.id}`;
+        bodyData = {
+          dmarcPolicy: editItem.data.policy || editItem.data.dmarc_policy || 'none',
+          active: editItem.data.active !== false,
+        };
+      } else if (editItem.type === 'user') {
+        endpoint = `${API_BASE}/api/admin/mailboxes/${editItem.data.id}`;
+        bodyData = {
+          displayName: editItem.data.display_name || '',
+          quotaMb: parseInt(editItem.data.quota_mb || '10240', 10),
+          active: editItem.data.active !== false,
+        };
+        if (editItem.data.newPassword && editItem.data.newPassword.trim()) {
+          bodyData.password = editItem.data.newPassword.trim();
+        }
+      } else if (editItem.type === 'client') {
+        endpoint = `${API_BASE}/api/admin/tenants/${editItem.data.id}`;
+        bodyData = {
+          name: editItem.data.name,
+          plan: editItem.data.plan,
+          maxMailboxes: parseInt(editItem.data.max_mailboxes || '50', 10),
+          active: editItem.data.active !== false,
+        };
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(bodyData),
+      });
+
+      if (res.ok) {
+        setEditItem(null);
+        fetchRealData();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to update');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating item');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -807,6 +896,20 @@ export default function AdminConsolePage() {
                           >
                             Verify
                           </button>
+                          <button
+                            onClick={() => setEditItem({ type: 'domain', data: { ...d } })}
+                            className="px-2.5 py-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 transition inline-flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteItem({ type: 'domain', id: d.id, name: d.name })}
+                            className="px-2.5 py-1.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/30 transition inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -863,6 +966,7 @@ export default function AdminConsolePage() {
                       <th className="p-4">Account Role</th>
                       <th className="p-4">Quota</th>
                       <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80 font-medium">
@@ -893,12 +997,28 @@ export default function AdminConsolePage() {
                                 {u.active !== false ? 'Active' : 'Blocked'}
                               </span>
                             </td>
+                            <td className="p-4 text-right space-x-2">
+                              <button
+                                onClick={() => setEditItem({ type: 'user', data: { ...u, newPassword: '' } })}
+                                className="px-2.5 py-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 transition inline-flex items-center gap-1"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setDeleteItem({ type: 'user', id: u.id, name: u.email })}
+                                className="px-2.5 py-1.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/30 transition inline-flex items-center gap-1"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
                     {users.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-500">
+                        <td colSpan={6} className="p-8 text-center text-slate-500">
                           No mailboxes found. Click "Add user" above to create one.
                         </td>
                       </tr>
@@ -935,6 +1055,7 @@ export default function AdminConsolePage() {
                       <th className="p-4">Domains</th>
                       <th className="p-4">Max Mailboxes</th>
                       <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80 font-medium">
@@ -952,6 +1073,22 @@ export default function AdminConsolePage() {
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
                             {c.active ? 'Active' : 'Suspended'}
                           </span>
+                        </td>
+                        <td className="p-4 text-right space-x-2">
+                          <button
+                            onClick={() => setEditItem({ type: 'client', data: { ...c } })}
+                            className="px-2.5 py-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 transition inline-flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteItem({ type: 'client', id: c.id, name: c.name })}
+                            className="px-2.5 py-1.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/30 transition inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1346,6 +1483,228 @@ export default function AdminConsolePage() {
                   Verify now
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {editItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-amber-400" />
+                Edit {editItem.type === 'domain' ? 'Domain' : editItem.type === 'user' ? 'Mailbox' : 'Client'}
+              </h2>
+              <button onClick={() => setEditItem(null)} className="text-slate-400 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              {/* DOMAIN EDIT */}
+              {editItem.type === 'domain' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Domain Name</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={editItem.data.name}
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-400 cursor-not-allowed font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">DMARC Policy</label>
+                    <select
+                      value={editItem.data.policy || editItem.data.dmarc_policy || 'none'}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, policy: e.target.value, dmarc_policy: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="none">none (Monitoring only - recommended for start)</option>
+                      <option value="quarantine">quarantine (Send spam to Junk)</option>
+                      <option value="reject">reject (Strict: Block unauthenticated emails)</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="domainActive"
+                      checked={editItem.data.active !== false}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, active: e.target.checked } })}
+                      className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0 w-4 h-4"
+                    />
+                    <label htmlFor="domainActive" className="text-xs font-bold text-slate-300">Domain Active & Enabled</label>
+                  </div>
+                </>
+              )}
+
+              {/* USER EDIT */}
+              {editItem.type === 'user' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Email Address</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={editItem.data.email}
+                      className="w-full bg-slate-950/50 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-400 cursor-not-allowed font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Suman Kumar"
+                      value={editItem.data.display_name || ''}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, display_name: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">New Password (Leave blank to keep unchanged)</label>
+                    <input
+                      type="password"
+                      placeholder="Enter new password to reset"
+                      value={editItem.data.newPassword || ''}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, newPassword: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Storage Quota (MB)</label>
+                    <select
+                      value={editItem.data.quota_mb || '10240'}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, quota_mb: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                    >
+                      <option value="2048">2 GB (2,048 MB)</option>
+                      <option value="5120">5 GB (5,120 MB)</option>
+                      <option value="10240">10 GB (10,240 MB)</option>
+                      <option value="20480">20 GB (20,480 MB)</option>
+                      <option value="51200">50 GB (51,200 MB)</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="userActive"
+                      checked={editItem.data.active !== false}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, active: e.target.checked } })}
+                      className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0 w-4 h-4"
+                    />
+                    <label htmlFor="userActive" className="text-xs font-bold text-slate-300">Mailbox Active (Uncheck to block)</label>
+                  </div>
+                </>
+              )}
+
+              {/* CLIENT EDIT */}
+              {editItem.type === 'client' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Company / Client Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={editItem.data.name || ''}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, name: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Service Plan</label>
+                    <select
+                      value={editItem.data.plan || 'business'}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, plan: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 capitalize"
+                    >
+                      <option value="basic">Basic</option>
+                      <option value="business">Business</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Maximum Allowed Mailboxes</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={editItem.data.max_mailboxes || 50}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, max_mailboxes: e.target.value } })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="clientActive"
+                      checked={editItem.data.active !== false}
+                      onChange={e => setEditItem({ ...editItem, data: { ...editItem.data, active: e.target.checked } })}
+                      className="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0 w-4 h-4"
+                    />
+                    <label htmlFor="clientActive" className="text-xs font-bold text-slate-300">Client Active (Uncheck to suspend)</label>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditItem(null)}
+                  className="px-4 py-2 rounded-lg text-slate-300 hover:text-white text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md disabled:opacity-50"
+                >
+                  {actionLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/30">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-white">Confirm Deletion</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Are you sure you want to permanently delete{' '}
+                <span className="font-bold text-rose-300 font-mono">"{deleteItem.name}"</span>?
+                {deleteItem.type === 'domain' && ' All mailboxes, aliases, and DNS configurations for this domain will be deleted.'}
+                {deleteItem.type === 'client' && ' All domains and users under this client company will be deleted.'}
+                {deleteItem.type === 'user' && ' All emails and folders in this mailbox will be permanently removed.'}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteItem(null)}
+                className="px-4 py-2 rounded-lg text-slate-300 hover:text-white text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={actionLoading}
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50"
+              >
+                {actionLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                Delete Permanently
+              </button>
             </div>
           </div>
         </div>
