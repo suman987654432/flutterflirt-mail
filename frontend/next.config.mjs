@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: process.env.STANDALONE === 'true' ? 'standalone' : undefined,
+  output: 'standalone',
   async rewrites() {
     // In production / Docker, internal backend is always 'http://backend:8080'
     // In local development on laptop host machine without Docker, it falls back to 'http://localhost:8080'
