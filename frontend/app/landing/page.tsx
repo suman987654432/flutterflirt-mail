@@ -12,6 +12,7 @@ import {
   Users,
   HardDrive,
   ArrowRight,
+  ArrowLeft,
   Search,
   FileText,
   Inbox,
@@ -163,6 +164,8 @@ export default function LandingPage() {
   const [showcaseTab, setShowcaseTab] = useState<'inbox' | 'todo' | 'calendar' | 'contacts'>('inbox');
   const [showcaseEmailFolder, setShowcaseEmailFolder] = useState<'inbox' | 'starred' | 'sent' | 'drafts' | 'trash'>('inbox');
   const [selectedEmailId, setSelectedEmailId] = useState<number>(1);
+  const [webmailSidebarOpen, setWebmailSidebarOpen] = useState(false);
+  const [mobileReadingPane, setMobileReadingPane] = useState(false);
   const [showcaseComposeOpen, setShowcaseComposeOpen] = useState(false);
   const [showcaseComposeTo, setShowcaseComposeTo] = useState('partners@venturecapital.io');
   const [showcaseComposeSubject, setShowcaseComposeSubject] = useState('Q3 Sovereign Infrastructure & Compliance Signoff');
@@ -210,7 +213,7 @@ export default function LandingPage() {
   const isAnnual = billingCycle === 'annual';
 
   return (
-    <div className="min-h-screen bg-[#f6f9fe] text-[#181c20] font-sans antialiased selection:bg-[#315bdb] selection:text-white">
+    <div className="min-h-screen bg-[#f6f9fe] text-[#181c20] font-sans antialiased selection:bg-[#315bdb] selection:text-white overflow-x-hidden w-full">
 
       {/* ═══════════════════════════════════════════════════════════
           HEADER / STICKY NAVBAR
@@ -273,28 +276,29 @@ export default function LandingPage() {
 
         {/* Mobile Nav Dropdown */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-[#dfe3e8] px-6 py-4 space-y-2 shadow-xl">
+          <div className="md:hidden bg-white/95 backdrop-blur-xl border-t border-[#dfe3e8] px-6 py-5 space-y-2.5 shadow-2xl animate-in slide-in-from-top-2 duration-200">
             {['Product', 'Features', 'Security', 'Pricing', 'FAQ'].map((item) => (
               <a
                 key={item}
                 href={item === 'Product' ? '#showcase' : `#${item.toLowerCase()}`}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-[14px] font-semibold text-[#181c20] hover:text-[#315bdb]"
+                className="block py-2 px-3 rounded-lg text-[15px] font-semibold text-[#181c20] hover:bg-[#cad6ff]/30 hover:text-[#315bdb] transition-colors"
               >
                 {item}
               </a>
             ))}
-            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5">
               <Link
                 href="/"
-                className="text-center py-2.5 rounded-lg border border-[#dfe3e8] text-[13px] font-semibold text-[#181c20]"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-center py-2.5 rounded-xl border border-[#dfe3e8] text-[13.5px] font-semibold text-[#181c20] hover:bg-slate-50 transition-colors"
               >
                 Sign In to Webmail
               </Link>
               <a
                 href="#get-started"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-center py-2.5 rounded-lg bg-[#315bdb] text-[13px] font-bold text-white shadow-sm"
+                className="text-center py-2.5 rounded-xl bg-[#315bdb] text-[13.5px] font-bold text-white shadow-md hover:bg-[#274bb7] transition-all"
               >
                 Get Started
               </a>
@@ -604,13 +608,27 @@ export default function LandingPage() {
             <div className="relative p-[1.5px] rounded-2xl bg-gradient-to-r from-[#315bdb]/40 via-[#60a5fa]/60 to-[#a855f7]/40 shadow-[0_20px_50px_rgba(49,91,219,0.15)] transition-all">
               <div className="rounded-2xl bg-white overflow-hidden text-left border border-slate-200">
                 {/* App Titlebar */}
-                <div className="h-12 bg-[#ebeef3] border-b border-[#dfe3e8] px-4 sm:px-6 flex items-center justify-between gap-4 select-none">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-rose-400 inline-block" />
-                    <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-                    <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
-                    <span className="font-mono text-[11px] text-[#434654] font-medium ml-2 hidden sm:inline">
-                      webmail.flutterflirt.com — {heroUser || 'sarah'}@{heroDomain || 'yourcompany.com'}
+                <div className="h-12 bg-[#ebeef3] border-b border-[#dfe3e8] px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Hamburger Button for Mobile Simulator Drawer */}
+                    <button
+                      onClick={() => setWebmailSidebarOpen(!webmailSidebarOpen)}
+                      className="sm:hidden p-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs shrink-0 flex items-center gap-1.5"
+                      aria-label="Toggle Webmail Navigation"
+                      title="Open Webmail Menu"
+                    >
+                      {webmailSidebarOpen ? <X className="w-3.5 h-3.5 text-rose-600" /> : <Menu className="w-3.5 h-3.5 text-[#315bdb]" />}
+                      <span className="text-[11px] font-bold text-slate-700">Menu</span>
+                    </button>
+
+                    <div className="hidden xs:flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+                    </div>
+
+                    <span className="font-mono text-[11px] text-[#434654] font-medium ml-1 truncate max-w-[130px] xs:max-w-none">
+                      webmail — {heroUser || 'sarah'}@{heroDomain || 'yourcompany.com'}
                     </span>
                   </div>
 
@@ -624,20 +642,20 @@ export default function LandingPage() {
                   </div>
 
                   {/* Right Quick Controls */}
-                  <div className="flex items-center gap-2.5 text-slate-600">
+                  <div className="flex items-center gap-2 text-slate-600 shrink-0">
                     <button
                       onClick={() => triggerShowcaseToast('✓ All mailboxes and DNS records synced in real time.')}
                       className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                       title="Refresh Mailbox"
                     >
-                      <RefreshCw className="w-4 h-4" />
+                      <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     <div className="h-4 w-px bg-slate-300" />
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-[#315bdb] text-white flex items-center justify-center font-bold text-[11px]">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#315bdb] text-white flex items-center justify-center font-bold text-[10px] sm:text-[11px]">
                         {heroUser ? heroUser.slice(0, 2).toUpperCase() : 'SJ'}
                       </div>
-                      <span className="font-semibold text-[12.5px] text-[#181c20] hidden sm:inline">
+                      <span className="font-semibold text-[11.5px] sm:text-[12.5px] text-[#181c20] hidden md:inline">
                         {heroName || 'Sarah Jenkins'}
                       </span>
                     </div>
@@ -645,10 +663,169 @@ export default function LandingPage() {
                 </div>
 
                 {/* Main Webmail Interface Workspace */}
-                <div className="grid grid-cols-12 min-h-[580px] bg-white relative">
+                <div className="grid grid-cols-12 min-h-[580px] bg-white relative overflow-hidden">
 
-                  {/* ── Left Sidebar (Navigation Rail) ── */}
-                  <div className="col-span-12 sm:col-span-4 lg:col-span-3 border-r border-[#dfe3e8] bg-[#f8fafc] p-3 sm:p-4 flex flex-col justify-between">
+                  {/* ── MOBILE SLIDE-IN DRAWER (HAMBURGER MENU) ── */}
+                  {webmailSidebarOpen && (
+                    <div className="sm:hidden absolute inset-0 z-30 bg-slate-900/50 backdrop-blur-xs flex animate-in fade-in duration-150">
+                      <div className="w-[84%] max-w-[290px] bg-[#f8fafc] h-full p-4 border-r border-[#dfe3e8] shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-200">
+                        <div className="space-y-4">
+                          {/* Drawer Header */}
+                          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-[#315bdb] flex items-center justify-center text-white font-bold text-xs">
+                                FF
+                              </div>
+                              <span className="font-bold text-[13.5px] text-[#181c20]">Mail Navigation</span>
+                            </div>
+                            <button
+                              onClick={() => setWebmailSidebarOpen(false)}
+                              className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 cursor-pointer"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Compose Button */}
+                          <button
+                            onClick={() => {
+                              setShowcaseComposeOpen(true);
+                              setWebmailSidebarOpen(false);
+                            }}
+                            className="w-full py-2.5 px-4 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>New Message</span>
+                          </button>
+
+                          {/* Mail Folders */}
+                          <div className="space-y-1">
+                            <div className="px-2 pb-1 text-[10.5px] uppercase tracking-wider font-bold text-slate-400">
+                              Mail Folders
+                            </div>
+
+                            {[
+                              { id: 'inbox' as const, label: 'Inbox', icon: Inbox, badge: '3', defaultEmailId: 1 },
+                              { id: 'starred' as const, label: 'Starred', icon: Star, badge: '2', defaultEmailId: 1 },
+                              { id: 'sent' as const, label: 'Sent Mail', icon: Send, badge: '1', defaultEmailId: 4 },
+                              { id: 'drafts' as const, label: 'Drafts', icon: FileText, badge: '1', defaultEmailId: 5 },
+                              { id: 'trash' as const, label: 'Trash', icon: Trash2, badge: '1', defaultEmailId: 6 },
+                            ].map((folder) => {
+                              const isActive = showcaseTab === 'inbox' && showcaseEmailFolder === folder.id;
+                              return (
+                                <button
+                                  key={folder.id}
+                                  onClick={() => {
+                                    setShowcaseTab('inbox');
+                                    setShowcaseEmailFolder(folder.id);
+                                    setSelectedEmailId(folder.defaultEmailId);
+                                    setMobileReadingPane(false);
+                                    setWebmailSidebarOpen(false);
+                                  }}
+                                  className={`w-full px-3 py-2.5 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${isActive
+                                    ? 'bg-[#cad6ff]/50 text-[#0340c2] font-semibold'
+                                    : 'text-slate-700 hover:bg-slate-200/60'
+                                    }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <folder.icon className={`w-4 h-4 ${isActive ? 'text-[#315bdb]' : 'text-slate-500'}`} />
+                                    <span>{folder.label}</span>
+                                  </div>
+                                  {folder.badge && (
+                                    <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${isActive ? 'bg-[#315bdb] text-white' : 'bg-slate-200 text-slate-700'
+                                      }`}>
+                                      {folder.badge}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Integrated Apps */}
+                          <div className="space-y-1 pt-2 border-t border-slate-200">
+                            <div className="px-2 pb-1 text-[10.5px] uppercase tracking-wider font-bold text-slate-400">
+                              Workspace Apps
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                setShowcaseTab('todo');
+                                setWebmailSidebarOpen(false);
+                              }}
+                              className={`w-full px-3 py-2.5 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${showcaseTab === 'todo'
+                                ? 'bg-emerald-100 text-emerald-900 font-semibold'
+                                : 'text-slate-700 hover:bg-slate-200/60'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <CheckSquare className={`w-4 h-4 ${showcaseTab === 'todo' ? 'text-emerald-700' : 'text-slate-500'}`} />
+                                <span>To-Do &amp; Tasks</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-600 text-white">
+                                {showcaseTasks.filter(t => !t.completed).length}
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setShowcaseTab('calendar');
+                                setWebmailSidebarOpen(false);
+                              }}
+                              className={`w-full px-3 py-2.5 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${showcaseTab === 'calendar'
+                                ? 'bg-slate-200 text-[#181c20] font-semibold'
+                                : 'text-slate-700 hover:bg-slate-200/60'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <Calendar className={`w-4 h-4 ${showcaseTab === 'calendar' ? 'text-[#315bdb]' : 'text-slate-500'}`} />
+                                <span>Calendar</span>
+                              </div>
+                              <span className="text-[9.5px] bg-slate-200/80 text-slate-700 font-semibold px-2 py-0.5 rounded-full border border-slate-300">
+                                Coming Soon
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setShowcaseTab('contacts');
+                                setWebmailSidebarOpen(false);
+                              }}
+                              className={`w-full px-3 py-2.5 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${showcaseTab === 'contacts'
+                                ? 'bg-slate-200 text-[#181c20] font-semibold'
+                                : 'text-slate-700 hover:bg-slate-200/60'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <Users className={`w-4 h-4 ${showcaseTab === 'contacts' ? 'text-[#315bdb]' : 'text-slate-500'}`} />
+                                <span>Team Directory</span>
+                              </div>
+                              <span className="text-[9.5px] bg-slate-200/80 text-slate-700 font-semibold px-2 py-0.5 rounded-full border border-slate-300">
+                                Coming Soon
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Storage Indicator */}
+                        <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1.5 mt-4">
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                            <span>Encrypted Storage</span>
+                            <span className="text-[#315bdb]">4.2 GB / 50 GB</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-[#315bdb] h-full w-[8%]" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Backdrop Click Dismiss */}
+                      <div className="flex-1" onClick={() => setWebmailSidebarOpen(false)} />
+                    </div>
+                  )}
+
+                  {/* ── Left Sidebar (Permanent Desktop/Tablet Navigation Rail) ── */}
+                  <div className="hidden sm:flex sm:col-span-4 lg:col-span-3 border-r border-[#dfe3e8] bg-[#f8fafc] p-3 sm:p-4 flex-col justify-between">
                     <div className="space-y-4">
                       {/* Compose Button */}
                       <button
@@ -680,6 +857,7 @@ export default function LandingPage() {
                                 setShowcaseTab('inbox');
                                 setShowcaseEmailFolder(folder.id);
                                 setSelectedEmailId(folder.defaultEmailId);
+                                setMobileReadingPane(false);
                               }}
                               className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium flex items-center justify-between transition-colors cursor-pointer ${isActive
                                 ? 'bg-[#cad6ff]/50 text-[#0340c2] font-semibold'
@@ -925,7 +1103,7 @@ export default function LandingPage() {
                       return (
                         <div className="grid grid-cols-1 lg:grid-cols-12 h-full min-h-[580px]">
                           {/* Email List Column */}
-                          <div className="lg:col-span-5 border-r border-[#dfe3e8] flex flex-col h-full bg-slate-50/40">
+                          <div className={`lg:col-span-5 border-r border-[#dfe3e8] flex flex-col h-full bg-slate-50/40 ${mobileReadingPane ? 'hidden lg:flex' : 'flex'}`}>
                             {/* List Top Bar */}
                             <div className="p-3.5 border-b border-[#dfe3e8] flex items-center justify-between bg-white text-[12.5px] font-semibold text-slate-700">
                               <span className="capitalize font-bold text-[#181c20]">
@@ -939,12 +1117,45 @@ export default function LandingPage() {
                               </span>
                             </div>
 
+                            {/* Mobile Quick Folder Filter Bar */}
+                            <div className="sm:hidden px-3 py-2 border-b border-slate-200 bg-white flex items-center gap-1.5 overflow-x-auto text-xs">
+                              {[
+                                { id: 'inbox' as const, label: 'Inbox', badge: '3' },
+                                { id: 'starred' as const, label: 'Starred', badge: '2' },
+                                { id: 'sent' as const, label: 'Sent', badge: '1' },
+                                { id: 'drafts' as const, label: 'Drafts', badge: '1' },
+                                { id: 'trash' as const, label: 'Trash', badge: '1' },
+                              ].map((f) => {
+                                const isAct = showcaseEmailFolder === f.id;
+                                return (
+                                  <button
+                                    key={f.id}
+                                    onClick={() => {
+                                      setShowcaseTab('inbox');
+                                      setShowcaseEmailFolder(f.id);
+                                      setMobileReadingPane(false);
+                                    }}
+                                    className={`px-2.5 py-1 rounded-full whitespace-nowrap text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer ${isAct
+                                      ? 'bg-[#315bdb] text-white font-bold shadow-2xs'
+                                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                      }`}
+                                  >
+                                    <span>{f.label}</span>
+                                    <span className="opacity-80 text-[10px]">({f.badge})</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
                             {/* Dynamic Email Items List */}
                             <div className="divide-y divide-slate-100 flex-1 overflow-y-auto">
                               {displayedEmails.map((item) => (
                                 <div
                                   key={item.id}
-                                  onClick={() => setSelectedEmailId(item.id)}
+                                  onClick={() => {
+                                    setSelectedEmailId(item.id);
+                                    setMobileReadingPane(true);
+                                  }}
                                   className={`p-3.5 cursor-pointer transition-all duration-150 ${activeEmail?.id === item.id
                                     ? 'bg-[#cad6ff]/40 border-l-4 border-l-[#315bdb] shadow-xs'
                                     : 'hover:bg-slate-100/70 hover:translate-x-0.5'
@@ -986,7 +1197,19 @@ export default function LandingPage() {
                           </div>
 
                           {/* Reading Pane Column */}
-                          <div className="lg:col-span-7 p-5 sm:p-6 flex flex-col justify-between bg-white h-full">
+                          <div className={`lg:col-span-7 p-4 sm:p-6 flex flex-col justify-between bg-white h-full ${mobileReadingPane ? 'flex' : 'hidden lg:flex'}`}>
+                            {/* Mobile Back Button */}
+                            <div className="lg:hidden pb-3 mb-3 border-b border-slate-200 flex items-center justify-between">
+                              <button
+                                onClick={() => setMobileReadingPane(false)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#181c20] font-semibold text-[12.5px] transition-colors cursor-pointer"
+                              >
+                                <ArrowLeft className="w-3.5 h-3.5 text-[#315bdb]" />
+                                <span>Back to Messages</span>
+                              </button>
+                              <span className="text-[11px] font-mono text-slate-400">{activeEmail?.time}</span>
+                            </div>
+
                             {activeEmail ? (
                               <div className="space-y-5 animate-in fade-in duration-200">
                                 {/* Email Headers */}
@@ -1133,33 +1356,44 @@ export default function LandingPage() {
 
                     {/* ── VIEW 2: INTERACTIVE TO-DO & TASKS ── */}
                     {showcaseTab === 'todo' && (
-                      <div className="p-6 space-y-6 animate-in fade-in duration-200">
+                      <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 animate-in fade-in duration-200">
+                        {/* Mobile Back Button */}
+                        <div className="sm:hidden pb-3 border-b border-slate-100 flex items-center justify-between">
+                          <button
+                            onClick={() => setShowcaseTab('inbox')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#181c20] font-semibold text-[12px] transition-colors cursor-pointer"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5 text-[#315bdb]" />
+                            <span>Back to Inbox</span>
+                          </button>
+                        </div>
+
                         <div className="flex items-center justify-between pb-4 border-b border-slate-200">
                           <div>
                             <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 uppercase tracking-wider font-mono">
                               <CheckSquare className="w-3.5 h-3.5" /> Functional Task Manager
                             </div>
-                            <h3 className="text-[20px] font-bold text-[#181c20] mt-0.5">
+                            <h3 className="text-[18px] sm:text-[20px] font-bold text-[#181c20] mt-0.5">
                               Workspace To-Do &amp; Action Items
                             </h3>
                           </div>
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-mono text-[12px] font-bold">
+                          <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-mono text-[11px] sm:text-[12px] font-bold shrink-0">
                             {showcaseTasks.filter(t => !t.completed).length} Pending
                           </span>
                         </div>
 
                         {/* Add New Task Form */}
-                        <form onSubmit={handleAddShowcaseTask} className="flex gap-2">
+                        <form onSubmit={handleAddShowcaseTask} className="flex flex-col sm:flex-row gap-2">
                           <input
                             type="text"
                             value={newTaskInput}
                             onChange={(e) => setNewTaskInput(e.target.value)}
                             placeholder="Type a new task (e.g. Set up sales@ alias, invite team member)..."
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-[14px] text-slate-800 focus:outline-none focus:border-[#315bdb] focus:ring-2 focus:ring-[#315bdb]/15"
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-[13.5px] sm:text-[14px] text-slate-800 focus:outline-none focus:border-[#315bdb] focus:ring-2 focus:ring-[#315bdb]/15"
                           />
                           <button
                             type="submit"
-                            className="px-5 py-2.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold transition-all active:scale-[0.98] cursor-pointer"
+                            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#315bdb] hover:bg-[#274bb7] text-white text-[13.5px] font-semibold transition-all active:scale-[0.98] cursor-pointer"
                           >
                             Add Task
                           </button>
@@ -1212,7 +1446,18 @@ export default function LandingPage() {
 
                     {/* ── VIEW 3: CALENDAR (COMING SOON) ── */}
                     {showcaseTab === 'calendar' && (
-                      <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 min-h-[500px]">
+                      <div className="p-5 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 min-h-[500px]">
+                        {/* Mobile Back Button */}
+                        <div className="sm:hidden w-full pb-3 border-b border-slate-100 flex items-center justify-start">
+                          <button
+                            onClick={() => setShowcaseTab('inbox')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#181c20] font-semibold text-[12px] transition-colors cursor-pointer"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5 text-[#315bdb]" />
+                            <span>Back to Inbox</span>
+                          </button>
+                        </div>
+
                         <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 text-[#315bdb] flex items-center justify-center shadow-xs">
                           <Calendar className="w-7 h-7" />
                         </div>
@@ -1261,7 +1506,18 @@ export default function LandingPage() {
 
                     {/* ── VIEW 4: TEAM DIRECTORY (COMING SOON) ── */}
                     {showcaseTab === 'contacts' && (
-                      <div className="p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 min-h-[500px]">
+                      <div className="p-5 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 min-h-[500px]">
+                        {/* Mobile Back Button */}
+                        <div className="sm:hidden w-full pb-3 border-b border-slate-100 flex items-center justify-start">
+                          <button
+                            onClick={() => setShowcaseTab('inbox')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#181c20] font-semibold text-[12px] transition-colors cursor-pointer"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5 text-[#315bdb]" />
+                            <span>Back to Inbox</span>
+                          </button>
+                        </div>
+
                         <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 text-[#315bdb] flex items-center justify-center shadow-xs">
                           <Users className="w-7 h-7" />
                         </div>
@@ -1332,7 +1588,7 @@ export default function LandingPage() {
 
               {/* ── FLOATING RICH COMPOSE MODAL OVERLAY ── */}
               {showcaseComposeOpen && (
-                <div className="absolute bottom-4 right-4 sm:right-6 w-[94%] sm:w-[480px] bg-white rounded-2xl shadow-2xl border-2 border-[#315bdb] overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-6 duration-200">
+                <div className="absolute bottom-3 left-3 right-3 sm:left-auto sm:right-6 w-auto sm:w-[480px] bg-white rounded-2xl shadow-2xl border-2 border-[#315bdb] overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-6 duration-200">
                   {/* Compose Header */}
                   <div className="h-10 bg-[#315bdb] px-4 flex items-center justify-between text-white select-none">
                     <span className="text-[13px] font-bold flex items-center gap-2">
@@ -1411,18 +1667,18 @@ export default function LandingPage() {
         {/* ═══════════════════════════════════════════════════════════
             3. TRUST & VALUE PROPOSITION (4 Feature Highlight Cards)
         ═══════════════════════════════════════════════════════════ */}
-        <section className="w-full py-20 px-6 lg:px-12 bg-[#f1f4f9]">
+        <section className="w-full py-12 sm:py-20 px-4 sm:px-6 lg:px-12 bg-[#f1f4f9]">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center max-w-3xl mx-auto mb-14">
-              <h2 className="text-3xl font-bold text-[#181c20] mb-3">
+            <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-14">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#181c20] mb-2 sm:mb-3">
                 Everything Your Business Needs for Professional Email
               </h2>
-              <p className="text-[16px] text-[#434654]">
+              <p className="text-[14.5px] sm:text-[16px] text-[#434654] leading-relaxed">
                 Built from the ground up for modern businesses needing reliable, scalable, and independent email delivery.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
                 {
                   icon: AtSign,
@@ -1451,19 +1707,19 @@ export default function LandingPage() {
               ].map((card) => (
                 <div
                   key={card.title}
-                  className="relative p-7 rounded-2xl bg-white border-2 border-slate-200/80 hover:border-[#315bdb] shadow-xs hover:shadow-[0_16px_40px_-8px_rgba(49,91,219,0.18)] transition-all duration-300 flex flex-col justify-between group cursor-pointer hover:-translate-y-1.5 overflow-hidden"
+                  className="relative p-5 sm:p-7 rounded-2xl bg-white border border-slate-200/80 hover:border-[#315bdb] shadow-xs hover:shadow-[0_16px_40px_-8px_rgba(49,91,219,0.18)] transition-all duration-300 flex flex-col justify-between group cursor-pointer hover:-translate-y-1 overflow-hidden"
                 >
                   {/* Glowing top gradient bar on hover */}
                   <div className="absolute top-0 left-0 right-0 h-1 bg-transparent group-hover:bg-gradient-to-r group-hover:from-[#0340c2] group-hover:via-[#315bdb] group-hover:to-[#60a5fa] transition-all duration-300" />
 
-                  <div className="space-y-4">
-                    <div className="w-12 h-12 rounded-xl bg-[#cad6ff]/50 flex items-center justify-center text-[#315bdb] group-hover:bg-[#315bdb] group-hover:text-white transition-all duration-300 group-hover:scale-110 shadow-xs">
-                      <card.icon className="w-6 h-6" />
+                  <div className="space-y-2.5 sm:space-y-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#cad6ff]/50 flex items-center justify-center text-[#315bdb] group-hover:bg-[#315bdb] group-hover:text-white transition-all duration-300 shadow-xs">
+                      <card.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <h3 className="text-[18px] text-[#181c20] font-bold group-hover:text-[#315bdb] transition-colors">{card.title}</h3>
-                    <p className="text-[14px] text-[#434654] leading-relaxed">{card.desc}</p>
+                    <h3 className="text-[16.5px] sm:text-[18px] text-[#181c20] font-bold group-hover:text-[#315bdb] transition-colors">{card.title}</h3>
+                    <p className="text-[13.5px] sm:text-[14px] text-[#434654] leading-relaxed">{card.desc}</p>
                   </div>
-                  <div className="mt-6 pt-4 flex items-center text-[#315bdb] text-[13px] font-semibold border-t border-slate-100 group-hover:border-[#cad6ff]">
+                  <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 flex items-center text-[#315bdb] text-[13px] font-semibold border-t border-slate-100 group-hover:border-[#cad6ff]">
                     <span>{card.action}</span>
                     <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1.5 transition-transform" />
                   </div>
@@ -1476,40 +1732,40 @@ export default function LandingPage() {
         {/* ═══════════════════════════════════════════════════════════
             4. PROBLEM & SOLUTION SECTION
         ═══════════════════════════════════════════════════════════ */}
-        <section className="w-full py-20 px-6 lg:px-12 bg-white">
+        <section className="w-full py-12 sm:py-20 px-4 sm:px-6 lg:px-12 bg-white">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold text-[#181c20] mb-3">
+            <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-16">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#181c20] mb-2 sm:mb-3">
                 Your Business Deserves More Than a Generic Email Address.
               </h2>
-              <p className="text-[16px] text-[#434654]">
+              <p className="text-[14.5px] sm:text-[16px] text-[#434654] leading-relaxed">
                 Free and generic webmail damages your credibility and fragments administrative governance.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8">
               {/* Problem 1 */}
               <div className="flex flex-col rounded-xl overflow-hidden shadow-xs bg-white border border-[#dfe3e8]/70">
-                <div className="p-6 bg-[#ffdad6]/40 space-y-2">
-                  <div className="flex items-center gap-2 text-[#93000a] text-[18px] font-bold">
-                    <XCircle className="w-5 h-5 text-[#ba1a1a]" />
+                <div className="p-4 sm:p-6 bg-[#ffdad6]/40 space-y-2">
+                  <div className="flex items-center gap-2 text-[#93000a] text-[16.5px] sm:text-[18px] font-bold">
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#ba1a1a]" />
                     <span>The Generic Trap</span>
                   </div>
-                  <p className="text-[14px] text-[#93000a]">
+                  <p className="text-[13px] sm:text-[14px] text-[#93000a] leading-relaxed">
                     Sending proposals from <em>@gmail.com</em> or <em>@yahoo.com</em> causes 68% of enterprise clients to hesitate and flags spam filters.
                   </p>
                 </div>
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4 bg-white">
+                <div className="p-4 sm:p-6 flex-1 flex flex-col justify-between space-y-3 sm:space-y-4 bg-white">
                   <div>
-                    <div className="flex items-center gap-2 text-[#315bdb] text-[18px] font-bold mb-2">
-                      <CheckCircle2 className="w-5 h-5" />
+                    <div className="flex items-center gap-2 text-[#315bdb] text-[16.5px] sm:text-[18px] font-bold mb-1.5 sm:mb-2">
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span>Professional Identity</span>
                     </div>
-                    <p className="text-[14px] text-[#434654]">
+                    <p className="text-[13px] sm:text-[14px] text-[#434654] leading-relaxed">
                       Give every team member an authenticated address with your custom domain name for instant enterprise authority.
                     </p>
                   </div>
-                  <div className="p-3 bg-[#ebeef3] rounded-lg font-mono text-[11px] text-[#181c20]">
+                  <div className="p-2.5 sm:p-3 bg-[#ebeef3] rounded-lg font-mono text-[11px] text-[#181c20]">
                     alexander@acmecorp.com <span className="text-emerald-700 ml-1 font-bold">✓ 100% Rep</span>
                   </div>
                 </div>
@@ -1517,26 +1773,26 @@ export default function LandingPage() {
 
               {/* Problem 2 */}
               <div className="flex flex-col rounded-xl overflow-hidden shadow-xs bg-white border border-[#dfe3e8]/70">
-                <div className="p-6 bg-[#ffdad6]/40 space-y-2">
-                  <div className="flex items-center gap-2 text-[#93000a] text-[18px] font-bold">
-                    <XCircle className="w-5 h-5 text-[#ba1a1a]" />
+                <div className="p-4 sm:p-6 bg-[#ffdad6]/40 space-y-2">
+                  <div className="flex items-center gap-2 text-[#93000a] text-[16.5px] sm:text-[18px] font-bold">
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#ba1a1a]" />
                     <span>Rogue Data Silos</span>
                   </div>
-                  <p className="text-[14px] text-[#93000a]">
+                  <p className="text-[13px] sm:text-[14px] text-[#93000a] leading-relaxed">
                     Decentralized inboxes mean departing staff retain business contacts, customer threads, and critical communications.
                   </p>
                 </div>
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4 bg-white">
+                <div className="p-4 sm:p-6 flex-1 flex flex-col justify-between space-y-3 sm:space-y-4 bg-white">
                   <div>
-                    <div className="flex items-center gap-2 text-[#315bdb] text-[18px] font-bold mb-2">
-                      <CheckCircle2 className="w-5 h-5" />
+                    <div className="flex items-center gap-2 text-[#315bdb] text-[16.5px] sm:text-[18px] font-bold mb-1.5 sm:mb-2">
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span>Centralized Governance</span>
                     </div>
-                    <p className="text-[14px] text-[#434654]">
+                    <p className="text-[13px] sm:text-[14px] text-[#434654] leading-relaxed">
                       Full admin sovereignty: instantly reassign mailboxes, enforce multi-factor policies, and archive audit logs from one dashboard.
                     </p>
                   </div>
-                  <div className="p-3 bg-[#ebeef3] rounded-lg font-mono text-[11px] text-[#181c20]">
+                  <div className="p-2.5 sm:p-3 bg-[#ebeef3] rounded-lg font-mono text-[11px] text-[#181c20]">
                     1-Click Mailbox Reassignment
                   </div>
                 </div>
@@ -1544,26 +1800,26 @@ export default function LandingPage() {
 
               {/* Problem 3 */}
               <div className="flex flex-col rounded-xl overflow-hidden shadow-xs bg-white border border-[#dfe3e8]/70">
-                <div className="p-6 bg-[#ffdad6]/40 space-y-2">
-                  <div className="flex items-center gap-2 text-[#93000a] text-[18px] font-bold">
-                    <XCircle className="w-5 h-5 text-[#ba1a1a]" />
+                <div className="p-4 sm:p-6 bg-[#ffdad6]/40 space-y-2">
+                  <div className="flex items-center gap-2 text-[#93000a] text-[16.5px] sm:text-[18px] font-bold">
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#ba1a1a]" />
                     <span>Big-Tech Lock-in</span>
                   </div>
-                  <p className="text-[14px] text-[#93000a]">
+                  <p className="text-[13px] sm:text-[14px] text-[#93000a] leading-relaxed">
                     Big-tech email providers train internal AI on your correspondence and alter storage terms and prices at will.
                   </p>
                 </div>
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4 bg-white">
+                <div className="p-4 sm:p-6 flex-1 flex flex-col justify-between space-y-3 sm:space-y-4 bg-white">
                   <div>
-                    <div className="flex items-center gap-2 text-[#315bdb] text-[18px] font-bold mb-2">
-                      <CheckCircle2 className="w-5 h-5" />
+                    <div className="flex items-center gap-2 text-[#315bdb] text-[16.5px] sm:text-[18px] font-bold mb-1.5 sm:mb-2">
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span>Complete Data Control</span>
                     </div>
-                    <p className="text-[14px] text-[#434654]">
+                    <p className="text-[13px] sm:text-[14px] text-[#434654] leading-relaxed">
                       Operate on FlutterFlirt's dedicated, privacy-focused self-hosted email infrastructure with strict tenant isolation.
                     </p>
                   </div>
-                  <div className="p-3 bg-[#ebeef3] rounded-lg font-mono text-[11px] text-[#181c20]">
+                  <div className="p-2.5 sm:p-3 bg-[#ebeef3] rounded-lg font-mono text-[11px] text-[#181c20]">
                     Zero Profiling • Zero AI Training
                   </div>
                 </div>
@@ -2210,7 +2466,7 @@ export default function LandingPage() {
         {/* ═══════════════════════════════════════════════════════════
             11. FINAL CALL TO ACTION (CTA) & ONBOARDING LEAD FORM
         ═══════════════════════════════════════════════════════════ */}
-        <section id="get-started" className="w-full py-24 px-6 lg:px-12 bg-[#0D1B3A] text-white relative overflow-hidden scroll-mt-16">
+        <section id="get-started" className="w-full py-16 sm:py-24 px-4 sm:px-6 lg:px-12 bg-[#0D1B3A] text-white relative overflow-hidden scroll-mt-16">
           <div id="contact" className="absolute -top-20" />
           {/* Ambient Glows */}
           <div className="absolute -top-24 left-1/4 w-96 h-96 bg-[#315bdb]/25 rounded-full blur-[120px] pointer-events-none" />
@@ -2222,16 +2478,16 @@ export default function LandingPage() {
               <span>DEPLOY SOVEREIGN BUSINESS EMAIL</span>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl lg:text-[46px] text-white font-bold tracking-tight leading-tight">
+            <h2 className="text-2xl sm:text-4xl lg:text-[46px] text-white font-bold tracking-tight leading-tight px-2">
               Give Your Business a Professional Email Identity.
             </h2>
 
-            <p className="text-[16px] text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-[15px] sm:text-[16px] text-slate-300 max-w-2xl mx-auto leading-relaxed px-2">
               Bring your business communication together with FlutterFlirt Mail. Set up your custom domain in minutes and take full control of your team&apos;s correspondence.
             </p>
 
             {/* Interactive Lead / Setup Form Card */}
-            <div className="max-w-2xl mx-auto mt-6 p-6 sm:p-8 rounded-2xl bg-[#132347]/95 border border-[#234185] shadow-2xl backdrop-blur-xl text-left">
+            <div className="max-w-2xl mx-auto mt-6 p-4 sm:p-8 rounded-2xl bg-[#132347]/95 border border-[#234185] shadow-2xl backdrop-blur-xl text-left">
               {leadSubmitted ? (
                 <div className="py-10 px-4 text-center space-y-4 animate-in fade-in zoom-in-95 duration-300">
                   <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 mx-auto flex items-center justify-center shadow-lg">
@@ -2419,12 +2675,13 @@ export default function LandingPage() {
       </main>
 
       {/* ═══════════════════════════════════════════════════════════
-          FOOTER
+          FOOTER (RESPONSIVE 2-COL MOBILE / 4-COL DESKTOP)
       ═══════════════════════════════════════════════════════════ */}
-      <footer className="w-full bg-[#0D1B3A] text-slate-300 border-t border-[#1F3A75] py-16">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#1F3A75]">
-            <div className="lg:col-span-1 flex flex-col gap-4">
+      <footer className="w-full bg-[#0D1B3A] text-slate-300 border-t border-[#1F3A75] py-12 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 pb-10 sm:pb-12 border-b border-[#1F3A75]">
+            {/* Brand Column (Left) */}
+            <div className="lg:col-span-4 flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <img
                   src="/logo-white.png"
@@ -2432,82 +2689,93 @@ export default function LandingPage() {
                   className="h-8 w-auto object-contain"
                 />
               </div>
-              <p className="text-[13px] text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed max-w-sm">
                 Professional business email hosting and centralized management for modern teams by FlutterFlirt Private Limited.
               </p>
-              <p className="text-[11px] text-slate-500">
-                © {new Date().getFullYear()} FlutterFlirt Private Limited. All rights reserved.
-              </p>
-              <div className="flex items-center gap-3 pt-2">
+              <div className="flex items-center gap-2.5 pt-1">
                 <a
                   href="#"
                   className="w-8 h-8 rounded-lg bg-[#162B5E] border border-[#1F3A75] flex items-center justify-center text-slate-300 hover:text-white hover:border-[#315bdb] transition-colors"
+                  aria-label="Website"
                 >
                   <Globe className="w-4 h-4" />
                 </a>
                 <a
                   href="#"
                   className="w-8 h-8 rounded-lg bg-[#162B5E] border border-[#1F3A75] flex items-center justify-center text-slate-300 hover:text-white hover:border-[#315bdb] transition-colors"
+                  aria-label="Community"
                 >
                   <MessageSquare className="w-4 h-4" />
                 </a>
                 <a
                   href="#"
                   className="w-8 h-8 rounded-lg bg-[#162B5E] border border-[#1F3A75] flex items-center justify-center text-slate-300 hover:text-white hover:border-[#315bdb] transition-colors"
+                  aria-label="Terminal API"
                 >
                   <Terminal className="w-4 h-4" />
                 </a>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Product</h4>
-              <ul className="flex flex-col gap-2 text-[13px]">
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Webmail</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Admin Console</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Features</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Security</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Pricing</li>
-              </ul>
-            </div>
+            {/* 4 Navigation Categories in a clean 2-column grid on mobile, 4-column on md+ */}
+            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
+              {/* Product */}
+              <div className="flex flex-col gap-2.5">
+                <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Product</h4>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  <li><a href="#showcase" className="text-slate-400 hover:text-white transition-colors">Webmail</a></li>
+                  <li><Link href="/admin" className="text-slate-400 hover:text-white transition-colors">Admin Console</Link></li>
+                  <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
+                  <li><a href="#security" className="text-slate-400 hover:text-white transition-colors">Security</a></li>
+                  <li><a href="#pricing" className="text-slate-400 hover:text-white transition-colors">Pricing</a></li>
+                </ul>
+              </div>
 
-            <div className="flex flex-col gap-3">
-              <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Company</h4>
-              <ul className="flex flex-col gap-2 text-[13px]">
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">About FlutterFlirt</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Contact</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Support</li>
-              </ul>
-            </div>
+              {/* Company */}
+              <div className="flex flex-col gap-2.5">
+                <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Company</h4>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  <li><span className="text-slate-400 hover:text-white transition-colors cursor-pointer">About Us</span></li>
+                  <li><a href="#get-started" className="text-slate-400 hover:text-white transition-colors">Contact</a></li>
+                  <li><a href="mailto:support@flutterflirt.com" className="text-slate-400 hover:text-white transition-colors">Support</a></li>
+                </ul>
+              </div>
 
-            <div className="flex flex-col gap-3">
-              <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Resources</h4>
-              <ul className="flex flex-col gap-2 text-[13px]">
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Documentation</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">FAQ</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">API & Protocols</li>
-              </ul>
-            </div>
+              {/* Resources */}
+              <div className="flex flex-col gap-2.5">
+                <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Resources</h4>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  <li><span className="text-slate-400 hover:text-white transition-colors cursor-pointer">Documentation</span></li>
+                  <li><a href="#faq" className="text-slate-400 hover:text-white transition-colors">FAQ</a></li>
+                  <li><span className="text-slate-400 hover:text-white transition-colors cursor-pointer">IMAP / SMTP</span></li>
+                </ul>
+              </div>
 
-            <div className="flex flex-col gap-3">
-              <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Legal</h4>
-              <ul className="flex flex-col gap-2 text-[13px]">
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Privacy Policy</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Terms & Conditions</li>
-                <li className="cursor-pointer text-slate-400 hover:text-white transition-colors">Security Compliance</li>
-              </ul>
+              {/* Legal */}
+              <div className="flex flex-col gap-2.5">
+                <h4 className="font-mono text-[11px] text-white uppercase tracking-wider font-bold">Legal</h4>
+                <ul className="flex flex-col gap-2 text-[13px]">
+                  <li><span className="text-slate-400 hover:text-white transition-colors cursor-pointer">Privacy Policy</span></li>
+                  <li><span className="text-slate-400 hover:text-white transition-colors cursor-pointer">Terms of Service</span></li>
+                  <li><span className="text-slate-400 hover:text-white transition-colors cursor-pointer">Compliance</span></li>
+                </ul>
+              </div>
             </div>
           </div>
 
-          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-slate-500 font-mono">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span>All systems operational: 99.99% uptime</span>
-            </div>
-            <div className="flex items-center gap-4">
+          {/* Bottom Sub-bar */}
+          <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11.5px] text-slate-400 font-mono text-center sm:text-left">
+            <p>
+              © {new Date().getFullYear()} FlutterFlirt Private Limited. All rights reserved.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-slate-400">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 99.9% Uptime
+              </span>
+              <span>•</span>
               <span>TLS 1.3 Strict</span>
-              <span>SOC2 Certified</span>
-              <span>ISO 27001</span>
+              <span>•</span>
+              <span>SOC2 &amp; ISO Compliant</span>
             </div>
           </div>
         </div>
