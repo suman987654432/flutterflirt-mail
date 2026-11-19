@@ -218,11 +218,11 @@ export default function LandingPage() {
       <header className="fixed top-0 w-full z-50 bg-[#f6f9fe]/85 backdrop-blur-xl border-b border-[#dfe3e8] shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
         <div className="h-16 max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link href="/landing" className="flex items-center gap-3 group">
+          <Link href="/landing" className="flex items-center">
             <img
               src="/logo.png"
               alt="FlutterFlirt Mail"
-              className="h-8 sm:h-9 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+              className="h-8 sm:h-9 w-auto object-contain"
             />
           </Link>
 
