@@ -265,7 +265,7 @@ export default function AdminConsolePage() {
       // Fallback display
       setDnsRecordsList([
         { type: 'MX', host: '@', value: '10 mail.codeaddabot.in', description: 'Receive email' },
-        { type: 'TXT', host: '@', value: 'v=spf1 include:_spf.mail.codeaddabot.in -all', description: 'SPF' },
+        { type: 'TXT', host: '@', value: 'v=spf1 include:amazonses.com ip4:13.207.129.73 ~all', description: 'SPF' },
         { type: 'TXT', host: 'ff2026._domainkey', value: 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQE...', description: 'DKIM key' },
         { type: 'TXT', host: '_dmarc', value: 'v=DMARC1; p=none; rua=mailto:dmarc-reports@codeaddabot.in', description: 'DMARC' },
       ]);
@@ -276,6 +276,16 @@ export default function AdminConsolePage() {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const handleCopyAllDnsRecords = () => {
+    if (!selectedDomainForDns || !dnsRecordsList.length) return;
+    const formatted = dnsRecordsList.map((rec, i) => {
+      return `[${i + 1}] Type: ${rec.type}\nName / Host: ${rec.host}\nValue / Points To: ${rec.value}\nPurpose: ${rec.description || ''}`;
+    }).join('\n\n');
+
+    const fullText = `=== DNS Records for ${selectedDomainForDns.name} ===\n\n${formatted}`;
+    handleCopy(fullText, 'ALL_RECORDS');
   };
 
   const handleVerifyDns = async () => {
@@ -1407,53 +1417,109 @@ export default function AdminConsolePage() {
       {/* DNS Records Modal */}
       {isDnsModalOpen && selectedDomainForDns && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-white">DNS records for {selectedDomainForDns.name}</h2>
-                <p className="text-xs text-slate-400">Add these at your domain registrar, then click Verify.</p>
+                <p className="text-xs text-slate-400">Add these at your domain registrar (GoDaddy, Cloudflare, etc.), then click Verify.</p>
               </div>
-              <button
-                onClick={() => setIsDnsModalOpen(false)}
-                className="text-slate-400 hover:text-white transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyAllDnsRecords}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition"
+                >
+                  {copiedKey === 'ALL_RECORDS' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      All Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy All Records
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsDnsModalOpen(false)}
+                  className="text-slate-400 hover:text-white transition p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
-              {dnsRecordsList.map(rec => (
-                <div key={rec.type + rec.host} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-800 text-slate-300 w-14 text-center shrink-0">
-                      {rec.type}
-                    </span>
-                    <span className="font-mono text-slate-400 text-[11px] shrink-0 w-24 truncate">
-                      {rec.host}
-                    </span>
-                    <span className="font-mono text-slate-200 text-[11px] truncate">
-                      {rec.value}
-                    </span>
-                  </div>
+            <div className="p-6 space-y-3.5 max-h-[65vh] overflow-y-auto">
+              {dnsRecordsList.map((rec, index) => {
+                const fullRecordText = `Type: ${rec.type}\nName: ${rec.host}\nValue: ${rec.value}`;
+                return (
+                  <div key={rec.type + rec.host + index} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-2 text-xs">
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-blue-950/80 text-blue-300 border border-blue-800/50">
+                          {rec.type}
+                        </span>
+                        <span className="text-slate-400 text-[11px]">
+                          {rec.description || (rec.type === 'MX' ? 'Receives inbound email' : rec.type === 'TXT' && rec.host.includes('_domainkey') ? 'DKIM 2048-bit Public Key' : 'DNS Record')}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(fullRecordText, 'full_' + rec.type + rec.host)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium transition"
+                        title="Copy complete record (Type, Name & Value)"
+                      >
+                        {copiedKey === ('full_' + rec.type + rec.host) ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400 font-semibold">Record Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Record</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
 
-                  <button
-                    onClick={() => handleCopy(rec.value, rec.type + rec.host)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold shrink-0 transition"
-                  >
-                    {copiedKey === (rec.type + rec.host) ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-              ))}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2 pt-0.5 items-center">
+                      {/* Host / Name */}
+                      <div className="md:col-span-4 bg-slate-900/90 rounded px-2.5 py-1.5 border border-slate-800/80 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Name / Host</span>
+                          <span className="font-mono text-slate-200 text-xs truncate block select-all">{rec.host}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(rec.host, 'host_' + rec.type + rec.host)}
+                          className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition shrink-0"
+                          title="Copy Name only"
+                        >
+                          {copiedKey === ('host_' + rec.type + rec.host) ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+
+                      {/* Value / Target */}
+                      <div className="md:col-span-8 bg-slate-900/90 rounded px-2.5 py-1.5 border border-slate-800/80 flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Value / Points To</span>
+                          <span className="font-mono text-slate-300 text-xs break-all block select-all max-h-24 overflow-y-auto">{rec.value}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(rec.value, 'val_' + rec.type + rec.host)}
+                          className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition shrink-0 self-start mt-1"
+                          title="Copy Value only"
+                        >
+                          {copiedKey === ('val_' + rec.type + rec.host) ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Modal Footer */}

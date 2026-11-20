@@ -223,10 +223,22 @@ router.get('/domains/:id/dns', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized access to this domain' });
     }
 
+    let dkimPublicKey = domain.dkim_public_key;
+    let dkimSelector = domain.dkim_selector || 'ff2026';
+    if (!dkimPublicKey) {
+      const keys = DkimService.generateKeys(domain.name, dkimSelector);
+      await query(
+        'UPDATE domains SET dkim_public_key = $1, dkim_private_key = $2, dkim_selector = $3 WHERE id = $4',
+        [keys.publicKey, keys.privateKey, dkimSelector, domain.id]
+      );
+      dkimPublicKey = keys.publicKey;
+      domain.dkim_public_key = keys.publicKey;
+    }
+
     const records = DnsService.getRequiredRecords(
       domain.name,
-      domain.dkim_selector,
-      domain.dkim_public_key,
+      dkimSelector,
+      dkimPublicKey,
       domain.dmarc_policy
     );
 

@@ -17,8 +17,8 @@ export class DnsService {
       {
         type: 'TXT',
         host: '@',
-        value: `v=spf1 include:_spf.${platform} -all`,
-        description: 'Authorizes FlutterFlirt Mail servers to send emails',
+        value: `v=spf1 include:amazonses.com ip4:${config.serverIp || '13.207.129.73'} ~all`,
+        description: 'Authorizes mail servers to send emails for this domain',
       },
       {
         type: 'TXT',
