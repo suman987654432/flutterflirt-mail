@@ -33,15 +33,27 @@ router.post('/admin/login', async (req, res) => {
   try {
     const cleanEmail = email.toLowerCase().trim();
 
-    let result = await query(
-      `SELECT a.id, a.email, a.password_hash, a.role, a.tenant_id, a.domain_id, a.active, 
-              t.name as tenant_name, d.name as domain_name
-       FROM admins a
-       LEFT JOIN tenants t ON a.tenant_id = t.id
-       LEFT JOIN domains d ON a.domain_id = d.id
-       WHERE a.email = $1`,
-      [cleanEmail]
-    );
+    let result = { rows: [] };
+    try {
+      result = await query(
+        `SELECT a.id, a.email, a.password_hash, a.role, a.tenant_id, a.domain_id, a.active, 
+                t.name as tenant_name, d.name as domain_name
+         FROM admins a
+         LEFT JOIN tenants t ON a.tenant_id = t.id
+         LEFT JOIN domains d ON a.domain_id = d.id
+         WHERE a.email = $1`,
+        [cleanEmail]
+      );
+    } catch (err) {
+      result = await query(
+        `SELECT a.id, a.email, a.password_hash, a.role, a.tenant_id, a.active, 
+                t.name as tenant_name
+         FROM admins a
+         LEFT JOIN tenants t ON a.tenant_id = t.id
+         WHERE a.email = $1`,
+        [cleanEmail]
+      );
+    }
 
     // Fallback: If not in admins table, check mailboxes table for admin@ addresses
     if (result.rows.length === 0 && cleanEmail.startsWith('admin@')) {
@@ -137,7 +149,7 @@ router.post('/mail/login', async (req, res) => {
   try {
     const cleanEmail = email.toLowerCase().trim();
     const result = await query(
-      `SELECT m.id, m.email, m.display_name, m.password_hash, m.quota_mb, m.active, d.name as domain_name, d.tenant_id
+      `SELECT m.id, m.email, m.display_name, m.password_hash, m.quota_mb, m.active, m.domain_id, d.name as domain_name, d.tenant_id
        FROM mailboxes m
        JOIN domains d ON m.domain_id = d.id
        JOIN tenants t ON d.tenant_id = t.id
@@ -159,11 +171,16 @@ router.post('/mail/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Check if this mailbox user is also an admin in the admins table
-    const adminCheck = await query(
-      `SELECT role, domain_id, tenant_id FROM admins WHERE email = $1 AND active = true`,
-      [cleanEmail]
-    );
+    // Check if this mailbox user is also an admin in the admins table safely
+    let adminCheck = { rows: [] };
+    try {
+      adminCheck = await query(
+        `SELECT role, tenant_id FROM admins WHERE email = $1 AND active = true`,
+        [cleanEmail]
+      );
+    } catch (adminErr) {
+      console.warn('[Auth] admins table check note:', adminErr.message);
+    }
 
     let userRole = 'user';
     let userType = 'mailbox';
@@ -173,7 +190,6 @@ router.post('/mail/login', async (req, res) => {
     if (adminCheck.rows.length > 0) {
       userRole = adminCheck.rows[0].role;
       userType = 'admin';
-      domainId = adminCheck.rows[0].domain_id || mailbox.domain_id;
       tenantId = adminCheck.rows[0].tenant_id || mailbox.tenant_id;
     } else if (cleanEmail.startsWith('admin@')) {
       userRole = (mailbox.domain_name === 'codeaddabot.in' || mailbox.domain_name === 'flutterflirt.com') ? 'superadmin' : 'domain_admin';

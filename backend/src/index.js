@@ -73,6 +73,13 @@ app.listen(config.port, '0.0.0.0', () => {
   console.log(` Mode: ${process.env.NODE_ENV || 'development'}`);
   console.log(`===================================================`);
 
+  // Auto-verify and add domain_id to admins table if missing
+  import('./db.js').then(({ query }) => {
+    query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS domain_id UUID REFERENCES domains(id) ON DELETE SET NULL;`)
+      .then(() => console.log('[DB] Schema verified: admins.domain_id exists.'))
+      .catch((e) => console.warn('[DB] Schema check notice:', e.message));
+  }).catch(() => {});
+
   // Start background DMARC Report Worker
   DmarcWorker.start(10);
 });
