@@ -1775,7 +1775,7 @@ export default function WebmailPage() {
                     <div className="w-[2%] h-full bg-[#0078d4] rounded-full"></div>
                   </div>
                   <div className="mt-2 text-[11px] text-[#605e5c] flex items-center justify-between">
-                    <span>Domain: <b>codeaddabot.in</b></span>
+                    <span>Domain: <b>{userEmail.includes('@') ? userEmail.split('@')[1] : 'flutterflirt.in'}</b></span>
                     <span className="text-emerald-600 font-semibold">DNS Verified ✓</span>
                   </div>
                 </div>
@@ -3992,7 +3992,7 @@ export default function WebmailPage() {
                 rows={5}
                 value={customSignatureInput}
                 onChange={(e) => setCustomSignatureInput(e.target.value)}
-                placeholder={`Best regards,\n${userEmail.split('@')[0]}\nFlutterFlirt Mail\ncodeaddabot.in`}
+                placeholder={`Best regards,\n${userEmail.includes('@') ? userEmail.split('@')[0] : 'User'}\nFlutterFlirt Mail\n${userEmail.includes('@') ? userEmail.split('@')[1] : 'flutterflirt.in'}`}
                 className="w-full px-3 py-2 border border-[#dadce0] rounded-lg text-xs text-[#1f1f1f] focus:outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] font-sans resize-none"
               />
               <p className="text-[11px] text-[#5f6368]">
