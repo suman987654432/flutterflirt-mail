@@ -17,7 +17,7 @@ export class DnsService {
       {
         type: 'TXT',
         host: '@',
-        value: `v=spf1 include:amazonses.com ip4:${config.serverIp || '13.207.129.73'} ~all`,
+        value: `v=spf1 include:spf.brevo.com ip4:${config.serverIp || '13.207.129.73'} ~all`,
         description: 'Authorizes mail servers to send emails for this domain',
       },
       {
@@ -94,6 +94,8 @@ export class DnsService {
       status.details.txt = flattenedTxt;
       status.spf = flattenedTxt.some(txt => 
         txt.includes('v=spf1') && (
+          txt.includes('spf.brevo.com') ||
+          txt.includes('sendinblue.com') ||
           txt.includes('amazonses.com') ||
           txt.includes('flutterflirt') || 
           txt.includes('codeaddabot') || 
