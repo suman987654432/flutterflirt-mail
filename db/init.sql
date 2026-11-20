@@ -62,9 +62,10 @@ CREATE TABLE IF NOT EXISTS aliases (
 CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE, -- NULL for FlutterFlirt Superadmin
+    domain_id UUID REFERENCES domains(id) ON DELETE CASCADE, -- Scoped for domain_admin
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL DEFAULT 'tenant_admin', -- 'superadmin', 'tenant_admin'
+    role VARCHAR(50) NOT NULL DEFAULT 'tenant_admin', -- 'superadmin', 'tenant_admin', 'domain_admin'
     active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

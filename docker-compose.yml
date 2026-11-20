@@ -47,10 +47,11 @@ services:
     depends_on:
       - postgres
     environment:
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST:-postgres}
       DB_NAME: ${DB_NAME:-flutterflirt_mail}
       DB_USER: ${DB_USER:-ffmail}
       DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
+      DB_SSL_CONFIG: ${DB_SSL_CONFIG:-sslmode=require}
       DOVECOT_MASTER_PASSWORD: ${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}
     volumes:
       - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
@@ -73,7 +74,7 @@ services:
       - dovecot
       - rspamd
     environment:
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST:-postgres}
       DB_NAME: ${DB_NAME:-flutterflirt_mail}
       DB_USER: ${DB_USER:-ffmail}
       DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}

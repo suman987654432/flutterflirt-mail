@@ -1,5 +1,5 @@
 driver = pgsql
-connect = host=postgres dbname=${DB_NAME} user=${DB_USER} password=${DB_PASSWORD}
+connect = host=${DB_HOST} dbname=${DB_NAME} user=${DB_USER} password=${DB_PASSWORD} ${DB_SSL_CONFIG}
 default_pass_scheme = BLF-CRYPT
 
 # Authentication query

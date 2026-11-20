@@ -1,5 +1,5 @@
 # Postfix pgsql-domains.cf
-hosts = postgres:5432
+hosts = ${DB_HOST}
 user = ${DB_USER}
 password = ${DB_PASSWORD}
 dbname = ${DB_NAME}

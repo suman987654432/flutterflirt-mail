@@ -34,16 +34,18 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiter for authentication routes
+// Rate limiter for authentication routes (Temporarily commented out)
+/*
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   message: { error: 'Too many authentication attempts. Please try again later.' },
 });
+*/
 
 // Mount Routes
-app.use('/api', authLimiter, authRoutes);
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/tasks', taskRoutes);
