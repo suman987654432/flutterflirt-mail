@@ -64,6 +64,9 @@ export class ImapService {
         user: authUser,
         pass: config.imap.masterPassword,
       },
+      connectionTimeout: 4000,
+      greetingTimeout: 3000,
+      socketTimeout: 5000,
       logger: false,
     });
     // Prevent unhandled error event crashes
@@ -118,7 +121,7 @@ export class ImapService {
         { name: 'Trash', path: 'Trash', unread: 0, total: 0 },
       ];
     } finally {
-      await client.logout().catch(() => {});
+      try { client.close(); } catch (e) {}
     }
   }
 
@@ -164,7 +167,7 @@ export class ImapService {
       console.warn(`[ImapService.getMessages]: ${email} ${folder} -`, err.message);
       return { total: 0, page, size, messages: [] };
     } finally {
-      await client.logout().catch(() => {});
+      try { client.close(); } catch (e) {}
     }
   }
 
@@ -271,7 +274,7 @@ export class ImapService {
         lock.release();
       }
     } finally {
-      await client.logout().catch(() => {});
+      try { client.close(); } catch (e) {}
     }
   }
 
@@ -329,7 +332,7 @@ export class ImapService {
         lock.release();
       }
     } finally {
-      await client.logout().catch(() => {});
+      try { client.close(); } catch (e) {}
     }
   }
 
@@ -355,7 +358,7 @@ export class ImapService {
         lock.release();
       }
     } finally {
-      await client.logout().catch(() => {});
+      try { client.close(); } catch (e) {}
     }
   }
 }

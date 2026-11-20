@@ -17,7 +17,13 @@ router.use(authenticateToken, requireMailbox);
 router.get('/folders', async (req, res) => {
   const email = req.user.email;
   try {
-    const folders = await ImapService.listFolders(email);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('IMAP folders timed out')), 3500)
+    );
+    const folders = await Promise.race([
+      ImapService.listFolders(email),
+      timeoutPromise,
+    ]);
     res.json({
       folders,
       quota: {
@@ -54,10 +60,16 @@ router.get('/folders/:f/messages', async (req, res) => {
   const email = req.user?.email || 'admin@codeaddabot.in';
 
   try {
-    const result = await ImapService.getMessages(email, folder, page, size);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('IMAP connection timed out')), 3500)
+    );
+    const result = await Promise.race([
+      ImapService.getMessages(email, folder, page, size),
+      timeoutPromise,
+    ]);
     res.json(result);
   } catch (err) {
-    // Return empty list if folder is empty or IMAP offline
+    // Return empty list if folder is empty, IMAP is offline or slow
     res.json({
       total: 0,
       page,

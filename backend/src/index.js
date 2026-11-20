@@ -73,11 +73,31 @@ app.listen(config.port, '0.0.0.0', () => {
   console.log(` Mode: ${process.env.NODE_ENV || 'development'}`);
   console.log(`===================================================`);
 
-  // Auto-verify and add domain_id to admins table if missing
-  import('./db.js').then(({ query }) => {
-    query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS domain_id UUID REFERENCES domains(id) ON DELETE SET NULL;`)
-      .then(() => console.log('[DB] Schema verified: admins.domain_id exists.'))
-      .catch((e) => console.warn('[DB] Schema check notice:', e.message));
+  // Auto-verify and add domain_id to admins table if missing, and ensure tasks table exists
+  import('./db.js').then(async ({ query }) => {
+    try {
+      await query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS domain_id UUID REFERENCES domains(id) ON DELETE SET NULL;`);
+      await query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID,
+          user_email VARCHAR(255) NOT NULL,
+          title VARCHAR(500) NOT NULL,
+          completed BOOLEAN NOT NULL DEFAULT false,
+          important BOOLEAN NOT NULL DEFAULT false,
+          due_date VARCHAR(50),
+          priority VARCHAR(20) DEFAULT 'medium',
+          notes TEXT,
+          source_email_uid INT,
+          source_email_subject VARCHAR(500),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      console.log('[DB] Schema verified: admins.domain_id and tasks table exist.');
+    } catch (e) {
+      console.warn('[DB] Schema check notice:', e.message);
+    }
   }).catch(() => {});
 
   // Start background DMARC Report Worker
