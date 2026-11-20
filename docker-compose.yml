@@ -91,6 +91,8 @@ services:
       context: ./backend
     container_name: ffmail-backend
     restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       - postgres
       - dovecot
@@ -119,6 +121,7 @@ services:
       DKIM_KEY_DIR: /var/lib/rspamd/dkim
     volumes:
       - ./backend/src:/app/src
+      - ./.env:/app/.env
       - dkim_keys:/var/lib/rspamd/dkim
     ports:
       - "8080:8080"
