@@ -101,7 +101,7 @@ export class MailerService {
       } catch (err) {
         console.warn(`[Mailer] Could not append to ${fromAddress} Sent folder:`, err.message);
       } finally {
-        await client.logout().catch(() => {});
+        try { client.close(); } catch (e) {}
       }
     } catch (e) {
       console.warn('[Mailer] IMAP connection for Sent folder failed:', e.message);

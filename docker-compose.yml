@@ -53,6 +53,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-ChangeThisSecretDBPass2026!}
       DOVECOT_MASTER_PASSWORD: ${DOVECOT_MASTER_PASSWORD:-FlutterFlirtMasterSecret123!}
     volumes:
+      - ./dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
       - mail_storage:/var/mail/vhosts
       - ssl_certs:/etc/ssl/certs
     ports:
