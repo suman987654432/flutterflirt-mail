@@ -8,10 +8,13 @@ export class MailerService {
    * Send mail over SMTP (Postfix submission)
    */
   static async sendMail({ from, to, cc, bcc, subject, html, text, attachments = [] }) {
-    const isSecure = config.smtp.secure === true || parseInt(config.smtp.port, 10) === 465;
+    const port = parseInt(config.smtp.port || '587', 10);
+    // Port 465 is implicit TLS (secure: true).
+    // Port 587, 25, 2525 use STARTTLS (secure must be false to avoid OpenSSL 'wrong version number' error).
+    const isSecure = port === 465 ? true : false;
     const transportOptions = {
       host: config.smtp.host,
-      port: parseInt(config.smtp.port, 10),
+      port,
       secure: isSecure,
       tls: {
         rejectUnauthorized: false,

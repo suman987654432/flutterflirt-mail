@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 
 async function sendTestEmail() {
-  console.log('--- Sending Test Mail as admin@codeaddabot.in via Resend SMTP ---');
+  console.log('--- Sending Test Mail as admin@codeaddabot.in via SMTP (AWS SES / Postfix) ---');
 
   const transporter = nodemailer.createTransport({
     host: config.smtp.host,

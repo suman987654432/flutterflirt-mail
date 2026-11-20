@@ -94,7 +94,7 @@ export class DnsService {
       status.details.txt = flattenedTxt;
       status.spf = flattenedTxt.some(txt => 
         txt.includes('v=spf1') && (
-          txt.includes('resend.com') || 
+          txt.includes('amazonses.com') ||
           txt.includes('flutterflirt') || 
           txt.includes('codeaddabot') || 
           txt.includes('_spf.') ||

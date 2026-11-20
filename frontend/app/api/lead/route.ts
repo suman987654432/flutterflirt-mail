@@ -63,10 +63,11 @@ export async function POST(req: Request) {
 
     // Attempt SMTP send
     try {
+      const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'localhost',
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: process.env.SMTP_SECURE === 'true',
+        port: smtpPort,
+        secure: smtpPort === 465,
         tls: { rejectUnauthorized: false },
         ...(process.env.SMTP_USER && process.env.SMTP_PASS
           ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
       });
 
       await transporter.sendMail({
-        from: `"FlutterFlirt Mail Lead" <${process.env.SMTP_FROM || 'onboarding@resend.dev'}>`,
+        from: `"FlutterFlirt Mail Lead" <${process.env.SMTP_FROM || 'admin@codeaddabot.in'}>`,
         to: recipient,
         replyTo: email,
         subject: `New Lead: ${name} - ${domain || email} (FlutterFlirt Mail Setup Request)`,
