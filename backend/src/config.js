@@ -52,4 +52,5 @@ export const config = {
 	},
 	platformDomain: process.env.PLATFORM_DOMAIN,
 	dmarcEmail: process.env.DMARC_REPORT_EMAIL,
+	brevoApiKey: process.env.BREVO_API_KEY || null,
 };

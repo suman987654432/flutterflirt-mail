@@ -4,6 +4,7 @@ import { query } from '../db.js';
 import { authenticateToken, requireAdmin, requireSuperadmin } from '../middleware/auth.js';
 import { DkimService } from '../services/dkimService.js';
 import { DnsService } from '../services/dnsService.js';
+import { BrevoService } from '../services/brevoService.js';
 
 const router = express.Router();
 router.use(authenticateToken, requireAdmin);
@@ -197,6 +198,51 @@ router.post('/domains', async (req, res) => {
     const domain = result.rows[0];
     const dnsRecords = DnsService.getRequiredRecords(cleanDomain, dkim.selector, dkim.publicKey, 'none');
 
+    // Automatic Brevo Domain Registration
+    try {
+      const brevoDomain = await BrevoService.registerDomain(cleanDomain);
+      if (brevoDomain && brevoDomain.dns_records) {
+        const recordsObj = brevoDomain.dns_records;
+        if (recordsObj.brevo_code) {
+          dnsRecords.push({
+            type: 'TXT',
+            host: recordsObj.brevo_code.host_name || '@',
+            value: recordsObj.brevo_code.value,
+            description: 'Brevo domain ownership verification code',
+          });
+        }
+        const dkimRec = recordsObj.dkim_record || recordsObj.dkimRecord;
+        if (dkimRec) {
+          dnsRecords.push({
+            type: dkimRec.type || 'TXT',
+            host: dkimRec.host_name || 'mail._domainkey',
+            value: dkimRec.value,
+            description: 'Brevo DKIM authentication record',
+          });
+        }
+        const dkim1 = recordsObj.dkim1Record || recordsObj.dkim1_record;
+        if (dkim1) {
+          dnsRecords.push({
+            type: 'CNAME',
+            host: dkim1.host_name || 'brevo1._domainkey',
+            value: dkim1.value,
+            description: 'Brevo DKIM 1 CNAME record',
+          });
+        }
+        const dkim2 = recordsObj.dkim2Record || recordsObj.dkim2_record;
+        if (dkim2) {
+          dnsRecords.push({
+            type: 'CNAME',
+            host: dkim2.host_name || 'brevo2._domainkey',
+            value: dkim2.value,
+            description: 'Brevo DKIM 2 CNAME record',
+          });
+        }
+      }
+    } catch (brevoErr) {
+      console.warn('[Brevo API Auto-Register Notice]:', brevoErr.message);
+    }
+
     await auditLog(req.user.email, 'ADD_DOMAIN', domain.id, { domain: cleanDomain });
 
     res.status(201).json({
@@ -242,6 +288,51 @@ router.get('/domains/:id/dns', async (req, res) => {
       domain.dmarc_policy
     );
 
+    // Merge Brevo DNS verification records if Brevo API is configured
+    try {
+      const brevoDomain = await BrevoService.getDomain(domain.name);
+      if (brevoDomain && brevoDomain.dns_records) {
+        const recordsObj = brevoDomain.dns_records;
+        if (recordsObj.brevo_code) {
+          records.push({
+            type: 'TXT',
+            host: recordsObj.brevo_code.host_name || '@',
+            value: recordsObj.brevo_code.value,
+            description: 'Brevo domain ownership verification code',
+          });
+        }
+        const dkimRec = recordsObj.dkim_record || recordsObj.dkimRecord;
+        if (dkimRec) {
+          records.push({
+            type: dkimRec.type || 'TXT',
+            host: dkimRec.host_name || 'mail._domainkey',
+            value: dkimRec.value,
+            description: 'Brevo DKIM authentication record',
+          });
+        }
+        const dkim1 = recordsObj.dkim1Record || recordsObj.dkim1_record;
+        if (dkim1) {
+          records.push({
+            type: 'CNAME',
+            host: dkim1.host_name || 'brevo1._domainkey',
+            value: dkim1.value,
+            description: 'Brevo DKIM 1 CNAME record',
+          });
+        }
+        const dkim2 = recordsObj.dkim2Record || recordsObj.dkim2_record;
+        if (dkim2) {
+          records.push({
+            type: 'CNAME',
+            host: dkim2.host_name || 'brevo2._domainkey',
+            value: dkim2.value,
+            description: 'Brevo DKIM 2 CNAME record',
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[Admin DNS] Could not fetch Brevo records:', e.message);
+    }
+
     res.json({ domain, records });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -263,6 +354,18 @@ router.post('/domains/:id/verify', async (req, res) => {
     }
 
     const liveStatus = await DnsService.verifyDomain(domain.name, domain.dkim_selector);
+
+    // Trigger Brevo API domain authentication check in background
+    let brevoStatus = null;
+    try {
+      brevoStatus = await BrevoService.authenticateDomain(domain.name);
+      if (brevoStatus) {
+        liveStatus.brevoAuthenticated = brevoStatus.authenticated || brevoStatus.verified || false;
+        liveStatus.details.brevo = brevoStatus;
+      }
+    } catch (e) {
+      console.warn('[Brevo Verify Notice]:', e.message);
+    }
 
     // Update domain table
     await query(
@@ -357,6 +460,14 @@ router.delete('/domains/:id', async (req, res) => {
     }
 
     await query('DELETE FROM domains WHERE id = $1', [id]);
+
+    // Clean up domain in Brevo as well
+    try {
+      await BrevoService.deleteDomain(checkDom.rows[0].name);
+    } catch (e) {
+      console.warn('[Brevo Delete Notice]:', e.message);
+    }
+
     await auditLog(req.user.email, 'DELETE_DOMAIN', id, { domain: checkDom.rows[0].name });
     res.json({ success: true, message: 'Domain deleted successfully' });
   } catch (err) {
